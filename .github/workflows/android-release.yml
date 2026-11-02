@@ -1,0 +1,210 @@
+name: Android release APKs
+
+# Builds signed, production-flavoured APKs and attaches them to a GitHub
+# release. Push a tag (for example `v1.0.2`) to cut a release, or run the
+# workflow by hand for a build-only artifact or to publish an existing tag.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release (leave empty to build artifacts only)'
+        required: false
+        type: string
+      build_number:
+        description: 'Android versionCode override (default: 1000 + GitHub run number)'
+        required: false
+        type: string
+      draft:
+        description: 'Create the GitHub release as a draft'
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: 'Mark the GitHub release as a pre-release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-apks:
+    name: Build and release Android APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out the release ref
+        uses: actions/checkout@v4
+        with:
+          # A manual run may name a tag; a tag push checks out that tag.
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve version and release tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=''
+          if [ -n "${{ inputs.tag }}" ]; then
+            tag='${{ inputs.tag }}'
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+
+          if [ -n "$tag" ]; then
+            version="${tag#v}"
+          else
+            version="$(sed -n 's/^version: *//p' pubspec.yaml | cut -d+ -f1)"
+          fi
+
+          if [ -n "${{ inputs.build_number }}" ]; then
+            build_number='${{ inputs.build_number }}'
+          else
+            # Above the historical pubspec build numbers (300+) so a CI APK
+            # is always an upgrade over an older sideload.
+            build_number="$((1000 + GITHUB_RUN_NUMBER))"
+          fi
+
+          {
+            echo "RELEASE_TAG=$tag"
+            echo "VERSION=$version"
+            echo "BUILD_NUMBER=$build_number"
+          } >> "$GITHUB_ENV"
+          echo "Building Spliit2Go $version ($build_number) for tag '${tag:-none}'"
+
+      - name: Install dependencies and generate code
+        run: |
+          flutter pub get
+          flutter gen-l10n
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Configure Android upload key
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing repository secret $name."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add the four Android signing secrets described in SETUP.md before releasing."
+            exit 1
+          fi
+
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
+          chmod 600 android/upload-keystore.jks
+          printf '%s\n' \
+            'storeFile=upload-keystore.jks' \
+            "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
+            "keyAlias=$ANDROID_KEY_ALIAS" \
+            "keyPassword=$ANDROID_KEY_PASSWORD" \
+            > android/key.properties
+          chmod 600 android/key.properties
+
+      - name: Build universal release APK
+        run: |
+          flutter build apk \
+            --release \
+            --flavor prod \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER"
+
+      - name: Build per-ABI release APKs
+        run: |
+          flutter build apk \
+            --release \
+            --flavor prod \
+            --split-per-abi \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER"
+
+      - name: Collect release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          src=build/app/outputs/flutter-apk
+          cp "$src/app-prod-release.apk" "dist/spliit2go-${VERSION}-universal.apk"
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            test -f "$src/app-${abi}-prod-release.apk"
+            cp "$src/app-${abi}-prod-release.apk" \
+              "dist/spliit2go-${VERSION}-${abi}.apk"
+          done
+          (cd dist && sha256sum *.apk > SHA256SUMS)
+          ls -lh dist
+
+      - name: Check the APKs are signed with the upload key
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$apksigner"
+          for apk in dist/*.apk; do
+            "$apksigner" verify --print-certs "$apk" | sed -n '1,4p'
+          done
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spliit2go-${{ env.VERSION }}-android-apks
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release
+        if: env.RELEASE_TAG != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Spliit2Go ${{ env.VERSION }}
+          body: |
+            Signed Android release APKs for Spliit2Go ${{ env.VERSION }}.
+
+            - `spliit2go-${{ env.VERSION }}-universal.apk` — one APK for every device
+            - `spliit2go-${{ env.VERSION }}-arm64-v8a.apk` — most modern phones
+            - `spliit2go-${{ env.VERSION }}-armeabi-v7a.apk` — older 32-bit phones
+            - `spliit2go-${{ env.VERSION }}-x86_64.apk` — x86 emulators/devices
+
+            Verify a download with `SHA256SUMS`. The APKs use the production
+            application id (`com.sharneng.spliit2go`) and the project's upload key.
+          files: dist/*
+          generate_release_notes: true
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f android/upload-keystore.jks android/key.properties

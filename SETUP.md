@@ -117,6 +117,29 @@ A prod release build needs `key.properties` and fails without it, so what people
 
 The target API level comes from Flutter (`flutter.targetSdkVersion`, 36 with Flutter 3.47), which meets Play's rule for new apps and updates from 31 August 2026 (API 36). A newer rule would need it pinned in `android/app/build.gradle.kts`.
 
+### CI release APKs
+
+[`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) builds the prod release APK (universal plus arm64-v8a, armeabi-v7a and x86_64 splits), verifies the signer, uploads them as workflow artifacts, and attaches them to a GitHub release.
+
+Add these repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 android/upload-keystore.jks` (the upload keystore, not the Play app-signing key) |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | the key alias, normally `upload` |
+| `ANDROID_KEY_PASSWORD` | the key password |
+
+The workflow writes a temporary `android/upload-keystore.jks` and `android/key.properties`, builds, then removes both.
+
+- **Release a tag:** push `v1.0.2`; the workflow builds that tag, sets the APK version name to `1.0.2`, and publishes a release named `Spliit2Go 1.0.2` with the APKs and `SHA256SUMS`.
+- **Build only:** run the workflow by hand with an empty **tag**; the APKs are available under the run's artifacts but no release is created.
+- **Publish an existing tag:** run by hand with its tag in **tag**.
+- **Version code:** defaults to `1000 + run number`, above the historical pubspec builds, so a CI APK is an upgrade over an older sideload. Override it with **build_number** when needed.
+- **Draft/prerelease:** the manual inputs mark the GitHub release accordingly.
+
+The APKs are the prod app (`com.sharneng.spliit2go`), signed with the upload key. They are not Play bundles; build an `.aab` locally or add a separate bundle job when uploading to Play.
+
 ## iOS
 
 The iOS project (`ios/`, added in #79) needs Xcode. It uses the same bundle ids as Android, `com.sharneng.spliit2go.dev` for dev and `com.sharneng.spliit2go` for prod (see App identity above), with a `dev` and a `prod` scheme and Debug, Release and Profile configurations for each (`Debug-dev`, `Release-prod`, and so on). It targets iOS 16 or later, and is iPhone only (#105). Plugins are integrated with Swift Package Manager, so there's no `Podfile` and no `pod install` step. Receipt scanning uses Apple's VisionKit and Vision on the iPhone (#155, `ios/Runner/ReceiptScanChannel.swift`) and ML Kit on Android (#125, `ReceiptScanChannel.kt`), each called from the app rather than through pub.dev plugins, which would bring CocoaPods back. To run it on a simulator:

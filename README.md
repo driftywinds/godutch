@@ -64,6 +64,10 @@ flutter analyze
 flutter test
 ```
 
+## Releases
+
+Pushing a `v*` tag runs [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml): it builds the signed prod APK (universal plus arm64-v8a, armeabi-v7a and x86_64 splits), verifies the signer, and attaches the APKs and `SHA256SUMS` to a GitHub release. The workflow can also be run by hand for a build-only artifact. It needs the four Android signing secrets listed in [`SETUP.md`](SETUP.md#ci-release-apks).
+
 ## Known limits
 
 - Passkeys, social/OIDC sign-in, connected apps and full account deletion are web-managed; the app links to `{instance}/account/settings`.
