@@ -77,21 +77,52 @@ jobs:
           else
             version="$(sed -n 's/^version: *//p' pubspec.yaml | cut -d+ -f1)"
           fi
+          if [[ ! "$version" =~ ^[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+            echo "::error::Invalid version name '$version'. Use a tag like v1.2.3."
+            exit 1
+          fi
 
           if [ -n "${{ inputs.build_number }}" ]; then
-            build_number='${{ inputs.build_number }}'
+            version_code='${{ inputs.build_number }}'
           else
-            # Above the historical pubspec build numbers (300+) so a CI APK
-            # is always an upgrade over an older sideload.
-            build_number="$((1000 + GITHUB_RUN_NUMBER))"
+            # 1000 + the workflow run number: above the historical pubspec
+            # build numbers (300+) and unique for every build.
+            version_code="$((1000 + GITHUB_RUN_NUMBER))"
+          fi
+          if [[ ! "$version_code" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Invalid versionCode '$version_code'. Use a positive whole number."
+            exit 1
           fi
 
           {
             echo "RELEASE_TAG=$tag"
             echo "VERSION=$version"
-            echo "BUILD_NUMBER=$build_number"
+            echo "VERSION_CODE=$version_code"
           } >> "$GITHUB_ENV"
-          echo "Building Go Dutch $version ($build_number) for tag '${tag:-none}'"
+          echo "Building Go Dutch $version (versionCode $version_code, run #$GITHUB_RUN_NUMBER) for tag '${tag:-none}'"
+          {
+            echo "### Go Dutch $version"
+            echo
+            echo "- Version name: \`$version\`"
+            echo "- Version code: \`$version_code\` (GitHub run #$GITHUB_RUN_NUMBER)"
+            echo "- Release tag: \`${tag:-none}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stamp the app version into pubspec.yaml
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          version = os.environ["VERSION"]
+          code = os.environ["VERSION_CODE"]
+          path = pathlib.Path("pubspec.yaml")
+          text = path.read_text()
+          text, count = re.subn(
+              r"(?m)^version:\s*.*$", f"version: {version}+{code}", text, count=1)
+          if count != 1:
+              raise SystemExit("pubspec.yaml has no version line")
+          path.write_text(text)
+          PY
+          grep -E '^version:' pubspec.yaml
 
       - name: Install dependencies and generate code
         run: |
@@ -136,7 +167,7 @@ jobs:
             --release \
             --flavor prod \
             --build-name "$VERSION" \
-            --build-number "$BUILD_NUMBER"
+            --build-number "$VERSION_CODE"
 
       - name: Build per-ABI release APKs
         run: |
@@ -145,7 +176,7 @@ jobs:
             --flavor prod \
             --split-per-abi \
             --build-name "$VERSION" \
-            --build-number "$BUILD_NUMBER"
+            --build-number "$VERSION_CODE"
 
       - name: Collect release files
         shell: bash
@@ -161,6 +192,19 @@ jobs:
           done
           (cd dist && sha256sum *.apk > SHA256SUMS)
           ls -lh dist
+
+      - name: Verify the APK carries the tag version and run version code
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          aapt="$(find "$sdk/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -n "$aapt"
+          apk="dist/godutch-${VERSION}-universal.apk"
+          "$aapt" dump badging "$apk" | head -1 > /tmp/badging.txt
+          cat /tmp/badging.txt
+          grep -Fq "versionCode='${VERSION_CODE}'" /tmp/badging.txt
+          grep -Fq "versionName='${VERSION}'" /tmp/badging.txt
 
       - name: Check the APKs are signed with the upload key
         shell: bash
@@ -189,6 +233,8 @@ jobs:
           name: Go Dutch ${{ env.VERSION }}
           body: |
             Signed Android release APKs for Go Dutch ${{ env.VERSION }}.
+
+            Version name: `${{ env.VERSION }}` · version code: `${{ env.VERSION_CODE }}` (GitHub run #${{ github.run_number }}).
 
             - `godutch-${{ env.VERSION }}-universal.apk` — one APK for every device
             - `godutch-${{ env.VERSION }}-arm64-v8a.apk` — most modern phones

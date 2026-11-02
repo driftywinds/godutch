@@ -70,7 +70,7 @@ flutter test
 
 ## Releases
 
-Pushing a `v*` tag runs [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml): it builds the signed prod APK (universal plus arm64-v8a, armeabi-v7a and x86_64 splits), verifies the signer, and attaches the APKs and `SHA256SUMS` to a GitHub release. The workflow can also be run by hand for a build-only artifact. It needs the four Android signing secrets listed in [`SETUP.md`](SETUP.md#ci-release-apks).
+Pushing a `v*` tag runs [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml): it builds the signed prod APK (universal plus arm64-v8a, armeabi-v7a and x86_64 splits), verifies the signer, and attaches the APKs and `SHA256SUMS` to a GitHub release. The tag without its leading `v` becomes the app's version name, and the Android version code is `1000 + run number`. The workflow can also be run by hand for a build-only artifact. It needs the four Android signing secrets listed in [`SETUP.md`](SETUP.md#ci-release-apks).
 
 ## Known limits
 

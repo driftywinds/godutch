@@ -132,10 +132,10 @@ Add these repository secrets (Settings → Secrets and variables → Actions):
 
 The workflow writes a temporary `android/upload-keystore.jks` and `android/key.properties`, builds, then removes both.
 
-- **Release a tag:** push `v1.0.2`; the workflow builds that tag, sets the APK version name to `1.0.2`, and publishes a release named `Go Dutch 1.0.2` with the APKs and `SHA256SUMS`.
+- **Release a tag:** push `v1.0.2`; the workflow builds that tag with version name `1.0.2` and publishes a release named `Go Dutch 1.0.2` with the APKs and `SHA256SUMS`.
 - **Build only:** run the workflow by hand with an empty **tag**; the APKs are available under the run's artifacts but no release is created.
-- **Publish an existing tag:** run by hand with its tag in **tag**.
-- **Version code:** defaults to `1000 + run number`, above the historical pubspec builds, so a CI APK is an upgrade over an older sideload. Override it with **build_number** when needed.
+- **Publish an existing tag:** run by hand with its tag in **tag**. The tag, with any leading `v` removed, becomes the app's version name (`v1.4.0` → `1.4.0`), so About and the APK report the tag rather than `pubspec.yaml`'s version.
+- **Version code:** defaults to `1000 + run number`, above the historical pubspec builds, so every workflow run is a higher version code than the last and a CI APK is an upgrade over an older sideload. Override it with **build_number** when needed. Before building, the workflow stamps both values into `pubspec.yaml` and then checks the built APK's `versionName` and `versionCode` with `aapt`, so a mismatch fails the run.
 - **Draft/prerelease:** the manual inputs mark the GitHub release accordingly.
 
 The APKs are the prod app (`com.dwprod.godutch`), signed with the upload key. They are not Play bundles; build an `.aab` locally or add a separate bundle job when uploading to Play.
