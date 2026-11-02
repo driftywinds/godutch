@@ -105,6 +105,29 @@ class _GroupListScreenState extends State<GroupListScreen> with RouteAware {
   Future<void> _signOut() async => widget.onSignOut?.call();
   void _accountChanged(CloudAccount value) => widget.onAccountChanged?.call(value);
 
+  /// The account's Cloud profile picture, or their initial while it loads,
+  /// when there isn't one, or if it can't be fetched.
+  Widget _accountButtonIcon() {
+    final image = _account.image;
+    final initial = Text(
+      _account.displayName.isEmpty
+          ? '?'
+          : _account.displayName.characters.first.toUpperCase(),
+      style: const TextStyle(fontSize: 12),
+    );
+    if (image == null || image.trim().isEmpty) {
+      return CircleAvatar(radius: 14, child: initial);
+    }
+    return CircleAvatar(
+      radius: 14,
+      foregroundImage: NetworkImage(image),
+      // The child is the fallback, so a broken or blocked picture still shows
+      // the account's initial rather than an empty circle.
+      onForegroundImageError: (_, __) {},
+      child: initial,
+    );
+  }
+
   bool get _syncEnabled => widget.client != null;
 
   @override
@@ -315,15 +338,7 @@ class _GroupListScreenState extends State<GroupListScreen> with RouteAware {
               ),
             ),
             IconButton(
-              icon: CircleAvatar(
-                radius: 14,
-                child: Text(
-                  _account.displayName.isEmpty
-                      ? '?'
-                      : _account.displayName.characters.first.toUpperCase(),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
+              icon: _accountButtonIcon(),
               tooltip: context.l10n.accountTitle,
               onPressed: _openAccount,
             ),

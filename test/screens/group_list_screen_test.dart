@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:godutch/api/spliit_client.dart';
 import 'package:godutch/db/app_database.dart';
 import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/account.dart';
 import 'package:godutch/models/expense.dart';
 import 'package:godutch/models/group.dart';
 import 'package:godutch/screens/group_list_screen.dart';
@@ -47,6 +48,30 @@ void main() {
 
     expect(find.text('No groups yet.'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Join a group'), findsOneWidget);
+  });
+
+  testWidgets('the account button shows the Cloud profile picture', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    const image = 'https://example.test/avatar.png';
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: GroupListScreen(
+        db: db,
+        account: const CloudAccount(
+            id: 'a1', name: 'Ada Lovelace', email: 'ada@example.test', image: image),
+        clientFactory: (_) => offlineClient(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final avatar = tester.widget<CircleAvatar>(
+        find.descendant(of: find.byTooltip('Account'), matching: find.byType(CircleAvatar)));
+    expect(avatar.foregroundImage, isA<NetworkImage>());
+    expect((avatar.foregroundImage! as NetworkImage).url, image);
   });
 
   testWidgets('lists joined groups most-recently-opened first', (tester) async {

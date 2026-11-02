@@ -743,7 +743,7 @@
       }
     }
   },
-  "aboutUnofficial": "An unofficial, community-made client for Spliit. It isn't affiliated with or endorsed by the Spliit project.",
+  "aboutUnofficial": "An unofficial, community-made client for Spliit and Spliit.cloud. It isn't affiliated with or endorsed by the Spliit project.",
   "aboutSpliitSubtitle": "Free, open-source expense sharing by Sebastien Castiel and contributors",
   "aboutSourceCode": "Source code",
   "aboutUpstream": "Original project",

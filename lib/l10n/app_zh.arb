@@ -341,7 +341,7 @@
   "appSettingsAbout": "关于 Go Dutch",
   "aboutTitle": "关于",
   "aboutVersion": "版本 {version}（{build}）",
-  "aboutUnofficial": "这是由社区开发的非官方 Spliit 客户端，与 Spliit 项目无关联，也未获其认可。",
+  "aboutUnofficial": "这是由社区开发的非官方 Spliit 和 Spliit.cloud 客户端，与 Spliit 项目无关联，也未获其认可。",
   "aboutSpliitSubtitle": "由 Sebastien Castiel 及贡献者开发的免费开源分账应用",
   "aboutSourceCode": "源代码",
   "aboutUpstream": "原项目",

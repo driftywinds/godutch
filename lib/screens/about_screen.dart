@@ -151,7 +151,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
           ),
           const Divider(height: 32),
-          link(Icons.public, 'Spliit', l10n.aboutSpliitSubtitle, spliitUrl),
+          link(Icons.public, 'Spliit and Spliit.cloud', l10n.aboutSpliitSubtitle, spliitUrl),
           link(Icons.code, l10n.aboutSourceCode, 'github.com/driftywinds/godutch', sourceCodeUrl),
           link(Icons.history_edu, l10n.aboutUpstream, l10n.aboutUpstreamSubtitle, upstreamUrl),
           link(Icons.help_outline, l10n.aboutSupport, l10n.aboutSupportSubtitle, supportUrl),
