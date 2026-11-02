@@ -1,0 +1,159 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import 'flag_glyph.dart';
+import 'text_scaled.dart';
+import '../l10n/context_l10n.dart';
+import '../l10n/currency_names.dart';
+import '../models/currency.dart';
+
+/// Opens Spliit's currency picker as a searchable modal bottom sheet --
+/// shared between the group settings screen's "Main currency" field and
+/// the expense screen's "paid in a different currency" field (issue
+/// #23), the way the web app shares one `<CurrencySelector>` between its
+/// own group-form.tsx and expense-form.tsx.
+///
+/// [currencies] is the full choice list. Pass
+/// `[Currency.custom, ...supportedCurrencies]` to offer "Custom" (only
+/// meaningful for a group's own main currency -- see
+/// group_settings_screen.dart) or just `supportedCurrencies` to omit it,
+/// which is what the expense screen's original-currency field does: a
+/// foreign-currency expense needs a real ISO code to convert against, so
+/// there's nothing a "Custom" entry could mean there (mirrors
+/// `defaultCurrencyList(locale, '')` in the web app's expense-form.tsx,
+/// where the empty customChoice means "no Custom option").
+///
+/// Returns the picked [Currency], or null if the sheet was dismissed
+/// without a selection.
+Future<Currency?> pickCurrency(
+  BuildContext context, {
+  required List<Currency> currencies,
+  String? selectedCode,
+}) {
+  return showModalBottomSheet<Currency>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _CurrencyPicker(currencies: currencies, selectedCode: selectedCode),
+  );
+}
+
+/// A search sheet's height above the keyboard: three quarters of the
+/// screen, but never taller than the room left above the keyboard (#279).
+/// Its search field brings the keyboard up as it opens, and 75% plus the
+/// keyboard ran the sheet off the top of the screen. Below the status bar,
+/// a gap is left so it still reads as a sheet.
+double searchSheetHeight(BuildContext context) {
+  final media = MediaQuery.of(context);
+  // The window's: a sheet's own MediaQuery has the status bar removed.
+  final statusBar = MediaQueryData.fromView(View.of(context)).padding.top;
+  final room = media.size.height - media.viewInsets.bottom - statusBar - _sheetTopGap;
+  return math.max(0, math.min(media.size.height * 0.75, room));
+}
+
+const _sheetTopGap = 24.0;
+
+class _CurrencyPicker extends StatefulWidget {
+  final List<Currency> currencies;
+  final String? selectedCode;
+
+  const _CurrencyPicker({required this.currencies, required this.selectedCode});
+
+  @override
+  State<_CurrencyPicker> createState() => _CurrencyPickerState();
+}
+
+class _CurrencyPickerState extends State<_CurrencyPicker> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _matches(Currency c) {
+    if (_query.isEmpty) return true;
+    return currencyMatchesQuery(context, c, _query.toLowerCase());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Custom is pinned above any section header (matches the screenshot
+    // on issue #23); "Most common" is the web app's hard-coded
+    // USD/EUR/JPY/GBP/CNY; everything else is "Other currencies", kept
+    // in [supportedCurrencies]' declared order rather than resorted
+    // alphabetically, same as the web app.
+    final custom = widget.currencies.where((c) => c.code.isEmpty && _matches(c)).toList();
+    final common = widget.currencies.where((c) => c.isCommon && _matches(c)).toList();
+    final other =
+        widget.currencies.where((c) => c.code.isNotEmpty && !c.isCommon && _matches(c)).toList();
+    final empty = custom.isEmpty && common.isEmpty && other.isEmpty;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SizedBox(
+          height: searchSheetHeight(context),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.search, size: context.textScaled(24)),
+                    hintText: context.l10n.currencyPickerSearchHint,
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+              Expanded(
+                child: empty
+                    ? Center(child: Text(context.l10n.currencyPickerNoResults))
+                    : ListView(
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        children: [
+                          for (final c in custom) _tile(context, c),
+                          if (common.isNotEmpty)
+                            _header(context, context.l10n.currencyPickerMostCommon),
+                          for (final c in common) _tile(context, c),
+                          if (other.isNotEmpty)
+                            _header(context, context.l10n.currencyPickerOtherCurrencies),
+                          for (final c in other) _tile(context, c),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context, String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text(
+          text,
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(color: Theme.of(context).colorScheme.primary),
+        ),
+      );
+
+  Widget _tile(BuildContext context, Currency c) => ListTile(
+        // Growing as a glyph, with room for it (#294).
+        leading: SizedBox(
+          width: context.textScaled(28),
+          child: FlagGlyph(c.code.isEmpty ? '＋' : c.flagEmoji),
+        ),
+        title: Text(localizedCurrencyLabel(context, c)),
+        selected: c.code == (widget.selectedCode ?? ''),
+        onTap: () => Navigator.of(context).pop(c),
+      );
+}

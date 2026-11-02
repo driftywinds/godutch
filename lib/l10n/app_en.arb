@@ -1,0 +1,1285 @@
+{
+  "@@locale": "en",
+  "commonCancel": "Cancel",
+  "commonRetry": "Retry",
+  "commonRequired": "Required",
+  "commonNoExpensesYet": "No expenses yet.",
+  "commonDelete": "Delete",
+  "groupListTitle": "Your groups",
+  "groupListJoinTooltip": "Join a group",
+  "groupListEmpty": "No groups yet.",
+  "groupListEmptyJoinButton": "Join a group",
+  "groupListLeaveTitle": "Leave group?",
+  "groupListLeaveBody": "This only removes \"{name}\" from this device -- it does not delete the group or affect anyone else in it.",
+  "groupListLeaveCloudBody": "Leave \"{name}\"? You will stop seeing it and its expenses on every device. Your past expenses stay in the group for the remaining members.",
+  "@groupListLeaveCloudBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "groupListSyncFailed": "Couldn't refresh your groups.",
+  "groupListArchiveBalances": "This group still has unsettled balances. Archive it anyway and settle them automatically?",
+  "groupListAdminOnly": "Only a group admin can do that.",
+  "@groupListLeaveBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "groupListLeaveConfirm": "Leave",
+  "joinGroupScreenTitle": "Join a group",
+  "joinGroupUrlInvalid": "That doesn't look like a group URL -- it should look like https://spliit.app/groups/xxxxxxxxxxxxxxxxxxxxx",
+  "joinGroupJoinFailed": "Couldn't join the group.",
+  "joinGroupUrlLabel": "Group URL",
+  "joinGroupInviteInvalid": "That doesn't look like a Spliit Cloud invite link. It should look like https://spliit.cloud/groups/…?invite=…",
+  "joinGroupInviteHelper": "Paste the invite link a member shared, e.g. https://spliit.cloud/groups/…?invite=…",
+  "joinGroupUrlHelper": "Paste the group's URL, e.g. https://spliit.app/groups/xxxxx",
+  "joinGroupPasteLink": "Paste link",
+  "@joinGroupPasteLink": {
+    "description": "Join screen: the button in the empty URL field that pastes a copied link (Android; iOS shows its own Paste button)."
+  },
+  "joinGroupSubmitButton": "Join",
+  "joinGroupNotFound": "No group with that link was found on {server}. Check the link and try again.",
+  "@joinGroupNotFound": {
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "errorTapForDetails": "Tap for details",
+  "errorDetailsTitle": "Error details",
+  "errorDetailsCopy": "Copy",
+  "errorDetailsCopied": "Copied",
+  "joinGroupOrCreate": "Don’t have a group link yet?",
+  "joinGroupCreateButton": "Create a new group",
+  "createGroupTitle": "Create group",
+  "createGroupSubmitTooltip": "Create",
+  "createGroupServerLabel": "Server",
+  "createGroupServerHelper": "Where this group is created. A group stays on the server it was made on.",
+  "createGroupServerOther": "Other server",
+  "createGroupServerAddressLabel": "Server address",
+  "createGroupServerInvalid": "That doesn’t look like a web address. Try something like spliit.example.com.",
+  "createGroupFailed": "Couldn’t create the group.",
+  "createGroupLoadFailed": "The group was created but couldn’t be loaded.\nTap ✓ to try again. Its link, if you need it later: {link}",
+  "@createGroupLoadFailed": {
+    "placeholders": {
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "createGroupSampleParticipant1": "John",
+  "createGroupSampleParticipant2": "Jane",
+  "createGroupSampleParticipant3": "Jack",
+  "groupSettingsNameLength": "The group name must be 2 to 50 characters.",
+  "groupSettingsParticipantNameLength": "Participant names must be 2 to 50 characters.",
+  "groupSettingsDuplicateParticipant": "Two participants are named “{name}”. Each needs a different name.",
+  "@groupSettingsDuplicateParticipant": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScreenSearchTooltip": "Search",
+  "groupScreenMenuTooltip": "Group actions",
+  "groupScreenMenuSettings": "Group settings",
+  "groupScreenMenuShare": "Share group",
+  "expenseSearchHint": "Search expenses",
+  "expenseSearchClear": "Clear search",
+  "expenseSearchPromptTitle": "Search this group",
+  "expenseSearchPromptBody": "Find an expense by its title.",
+  "expenseSearchNoMatchesTitle": "No matching expenses",
+  "expenseSearchNoMatchesBody": "No expense here has “{query}” in its title.",
+  "@expenseSearchNoMatchesBody": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "groupScreenTabExpenses": "Expenses",
+  "groupScreenTabBalance": "Balance",
+  "groupScreenTabStats": "Stats",
+  "groupScreenTabActivities": "Activities",
+  "dateSectionUpcoming": "Upcoming",
+  "dateSectionThisWeek": "This week",
+  "dateSectionEarlierThisWeek": "Earlier this week",
+  "dateSectionLastWeek": "Last week",
+  "dateSectionEarlierThisMonth": "Earlier this month",
+  "dateSectionLastMonth": "Last month",
+  "dateSectionEarlierThisYear": "Earlier this year",
+  "dateSectionLastYear": "Last year",
+  "dateSectionOlder": "Older",
+  "groupScreenServerError": "Couldn't load this group.",
+  "groupScreenSyncFailed": "sync failed",
+  "groupScreenSyncing": "syncing…",
+  "groupScreenEditNeedsConnection": "Editing an expense needs a connection.",
+  "groupScreenActiveUserDialogTitle": "Who are you?",
+  "groupScreenActiveUserNone": "Nobody",
+  "activeUserPrivacyNote": "This stays on this phone. Spliit has no accounts, so nobody else in the group can see who you picked.",
+  "activeUserRememberName": "Use this name in new groups",
+  "activeUserRememberNameNote": "Groups you open or join later pick you by this name, without asking.",
+  "activeUserRememberNameNoteSet": "Now “{name}”: groups you open or join later pick you by it, without asking. Turn on to use the name you pick here.",
+  "@activeUserRememberNameNoteSet": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activeUserNobodyNote": "Pick this on a phone the whole group shares.",
+  "groupSettingsTitle": "Group settings",
+  "groupSettingsSaveTooltip": "Save",
+  "groupSettingsNameRequired": "Group name is required.",
+  "groupSettingsSymbolRequired": "Enter at least one character.",
+  "groupSettingsNeedParticipant": "At least one participant is required.",
+  "groupSettingsParticipantNameRequired": "Every participant needs a name.",
+  "groupSettingsCantRemoveHasExpenses": "Can't remove a participant who has expenses in this group.",
+  "groupSettingsSaveFailed": "Couldn't save the group settings.",
+  "groupSettingsNameLabel": "Group name",
+  "groupSettingsCurrencyLabel": "Main currency",
+  "groupSettingsDateSpanLabel": "Date span",
+  "groupSettingsSymbolLabel": "Currency symbol",
+  "groupSettingsSymbolHint": "$, €, £...",
+  "groupSettingsSymbolHelper": "We'll use it to display amounts.",
+  "groupSettingsInfoLabel": "Group information",
+  "groupSettingsInfoHint": "What information is relevant to group participants?",
+  "groupSettingsParticipantsHeading": "Participants",
+  "groupSettingsAddParticipantTooltip": "Add participant",
+  "groupSettingsCantRemoveTooltip": "Can't remove: has expenses in this group",
+  "groupSettingsRemoveTooltip": "Remove",
+  "groupSettingsMembersHeading": "Members",
+  "groupSettingsInviteTitle": "Invite people",
+  "groupSettingsInvitePending": "Invitation pending",
+  "groupSettingsRevokeInvite": "Revoke invitation",
+  "groupSettingsRevokeInviteBody": "The link stops working immediately. Anyone who already joined stays in the group.",
+  "groupSettingsRoleAdmin": "Admin",
+  "groupSettingsRoleMember": "Member",
+  "groupSettingsMakeAdmin": "Make admin",
+  "groupSettingsMakeMember": "Make member",
+  "groupSettingsRemoveMember": "Remove member",
+  "groupSettingsRemoveMemberBalances": "This member still has unsettled balances. Remove them anyway and settle those balances automatically?",
+  "groupSettingsDangerZone": "Group settings",
+  "groupScreenShareFailed": "Couldn't create an invite link.",
+  "groupScreenArchived": "This group is archived and read-only. Unarchive it in group settings to add or change expenses.",
+  "groupSettingsArchiveBody": "Archived groups are read-only for every member and move to the Archived section.",
+  "groupSettingsDelete": "Delete group",
+  "groupSettingsDeleteBody": "Permanently delete \"{name}\" and every expense in it? This cannot be undone.",
+  "@groupSettingsDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createGroupInviteHint": "You are the first member. After creating the group, invite the others from its Members section.",
+  "expenseEditTitle": "Edit expense",
+  "expenseAddTitle": "New expense",
+  "expenseAddSettlementTitle": "New settlement",
+  "expenseEditSettlementTitle": "Edit settlement",
+  "expenseSwitchToSettlement": "Switch to settlement",
+  "expenseSwitchToExpense": "Switch to expense",
+  "expenseChangeToSettlementTitle": "Change to a settlement?",
+  "expenseChangeToExpenseTitle": "Change to an expense?",
+  "expenseKindChange": "Change",
+  "expenseKindConvert": "Convert",
+  "expenseConvertToSettlement": "Convert to settlement",
+  "expenseConvertToExpense": "Convert to expense",
+  "expenseConvertToSettlementTitle": "Convert to a settlement?",
+  "expenseConvertToExpenseTitle": "Convert to an expense?",
+  "expenseConvertExistingToSettlement": "Are you sure you want to convert this existing expense to a settlement?",
+  "expenseConvertExistingToExpense": "Are you sure you want to convert this existing settlement to an expense?",
+  "expenseSettlementMeaning": "A settlement records money paid back. Its amount is what each person received, and it has no category.",
+  "expenseExpenseMeaning": "An expense records something bought for the group and how it's split.",
+  "expenseConversionSavedOnSave": "The conversion is saved only when you tap Save (✓).",
+  "expenseDiscardChangesTitle": "Discard changes?",
+  "expenseTitleLabel": "Title",
+  "expenseAmountLabel": "Amount",
+  "expenseInvalidAmount": "Enter a valid amount",
+  "expenseDateLabel": "Date",
+  "expenseCategoryLabel": "Category",
+  "expensePaidByLabel": "Paid by",
+  "expenseRepeatLabel": "Repeat",
+  "expenseRepeatNone": "Never",
+  "expenseRepeatDaily": "Daily",
+  "expenseRepeatWeekly": "Weekly",
+  "expenseRepeatMonthly": "Monthly",
+  "expensePaidForHeading": "Paid for",
+  "expenseSelectNone": "Select none",
+  "expenseSelectAll": "Select all",
+  "expenseSplitLabel": "Split",
+  "@expenseSplitLabel": {"description": "The split mode menu's label, where the Evenly / Shares / Percent / Amount control doesn't fit (large text)."},
+  "expenseSplitEvenly": "Evenly",
+  "expenseSplitShares": "Shares",
+  "expenseSplitPercent": "Percent",
+  "expenseSplitAmount": "Amount",
+  "expenseSaveDefaultSplit": "Save as default split",
+  "expenseNotesLabel": "Notes",
+  "expenseNotesHint": "Anything worth remembering?",
+  "expenseNotesMarkdown": "Markdown",
+  "@expenseNotesMarkdown": {"description": "Switch under an expense's notes (#311): the notes are written in markdown, and shown formatted."},
+  "expenseNotesEdit": "Edit",
+  "expenseNotesPreview": "Preview",
+  "expenseNotesPreviewEmpty": "Nothing to preview yet",
+  "expenseNotesImage": "Image",
+  "expenseNotesOpenImage": "Open image",
+  "expenseNotesTooLong": "{count, plural, =1{1 character too long} other{{count} characters too long}}",
+  "@expenseNotesTooLong": {"description": "Under the notes field when the note as saved, the markdown marker line included (#311), is over Spliit's 5,000 characters.", "placeholders": {"count": {"type": "int"}}},
+  "expenseNotesWhenOnline": "Available when online",
+  "expenseSaveButton": "Save",
+  "expenseCategorySearchLabel": "Search categories",
+  "expenseNoMatchingCategories": "No matching categories",
+  "expenseSelectAtLeastOne": "Select at least one participant",
+  "expenseEnterShares": "{name}: enter a number of shares",
+  "@expenseEnterShares": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseEnterPercentage": "{name}: enter a percentage",
+  "@expenseEnterPercentage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expensePercentageShort": "Percentages must add up to 100% ({percent}% short)",
+  "@expensePercentageShort": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "expensePercentageOverBy": "Percentages must add up to 100% ({percent}% over)",
+  "@expensePercentageOverBy": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseEnterAmount": "{name}: enter an amount",
+  "@expenseEnterAmount": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseAmountShort": "Amounts must add up to the total ({amount} short)",
+  "@expenseAmountShort": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseAmountOverBy": "Amounts must add up to the total ({amount} over)",
+  "@expenseAmountOverBy": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expensePercentOver": "{percent}% over 100%.",
+  "@expensePercentOver": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "expensePercentRemaining": "{percent}% still to allocate.",
+  "@expensePercentRemaining": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseAmountOver": "{amount} over the total.",
+  "@expenseAmountOver": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseAmountRemaining": "{amount} still to allocate.",
+  "@expenseAmountRemaining": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseHintEvenly": "Everyone selected pays an equal part.",
+  "expenseHintShares": "Give anyone paying a larger part more shares.",
+  "expenseHintPercentage": "Percentages must add up to 100.",
+  "expenseHintAmount": "Amounts must add up to the expense total.",
+  "expenseEditSaveFailed": "Couldn't save this expense.",
+  "expenseDefaultSplitSaveFailed": "The expense was saved, but its split couldn't be saved as the default.",
+  "statsTitle": "Stats",
+  "statsSectionGroup": "The group",
+  "statsGroupTotalSpending": "Total group spending",
+  "statsGroupTotalEarnings": "Total group earnings",
+  "statsGroupFooter": "Settling up is not spending, so settlements are left out of every figure here.",
+  "statsSectionByParticipant": "By participant",
+  "statsSectionByCategory": "By category",
+  "statsParticipantPaidCount": "{count, plural, =1{Paid 1 expense} other{Paid {count} expenses}}",
+  "@statsParticipantPaidCount": {
+    "description": "Subtitle on a participant's stats row, e.g. 'Paid 3 expenses'.",
+    "placeholders": {
+      "count": {
+        "type": "num",
+        "format": "compact"
+      }
+    }
+  },
+  "statsParticipantShare": "share {amount}",
+  "@statsParticipantShare": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "activityTitle": "Activity",
+  "activityEmpty": "There is not yet any activity in your group.",
+  "activityOpenNeedsConnection": "Opening this expense needs a connection.",
+  "activityLoadFailed": "Couldn't load activity.",
+  "activitySomeone": "Someone",
+  "activityGroupSettingsModified": "{name} changed the group settings.",
+  "@activityGroupSettingsModified": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activityExpenseCreated": "{name} added “{title}”.",
+  "@activityExpenseCreated": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activityExpenseUpdated": "{name} updated “{title}”.",
+  "@activityExpenseUpdated": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activityExpenseDeleted": "{name} deleted “{title}”.",
+  "@activityExpenseDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activityToday": "Today",
+  "activityYesterday": "Yesterday",
+  "balancesTitle": "Balances",
+  "balancesExplainer": "This is the amount each participant paid or was paid for.",
+  "balancesYouSection": "You",
+  "balancesYouLabel": "You",
+  "balancesYouNobody": "Nobody",
+  "balancesYouAreOwed": "You are owed",
+  "balancesYouOwe": "You owe",
+  "balancesYouSettled": "You’re settled up",
+  "balancesYouHint": "Pick yourself once and this group is read from where you stand: your own balance first, and your name already filled in on a new expense.",
+  "balancesSuggestedSettlements": "Suggested settlements",
+  "balancesOwes": "{from} owes {to}",
+  "@balancesOwes": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "balancesMarkAsPaid": "Mark as paid  {amount}",
+  "@balancesMarkAsPaid": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "currencyPickerSearchHint": "Search currency...",
+  "currencyPickerNoResults": "No currency found",
+  "currencyPickerMostCommon": "Most common",
+  "currencyPickerOtherCurrencies": "Other currencies",
+  "currencyCustom": "Custom",
+  "@currencyCustom": {
+    "description": "The currency picker's and group currency field's choice for a group that uses its own symbol instead of a known currency."
+  },
+  "appSettingsTitle": "App settings",
+  "appSettingsTheme": "Theme",
+  "appSettingsThemeLight": "Light",
+  "appSettingsThemeDark": "Dark",
+  "appSettingsThemeSystem": "Follow System",
+  "appSettingsSaveError": "Could not save your setting. Please try again.",
+  "appSettingsLanguage": "Language",
+  "appSettingsLanguageSystem": "System default",
+  "categoryFallbackName": "Category {id}",
+  "@categoryFallbackName": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "groupListFavorites": "Favorites",
+  "groupListActive": "Active",
+  "groupListArchived": "Archived",
+  "groupListFavorite": "Favorite",
+  "groupListUnfavorite": "Unfavorite",
+  "groupListArchive": "Archive",
+  "groupListUnarchive": "Unarchive",
+  "groupListRemove": "Remove",
+  "groupListSort": "Sort groups",
+  "groupListSortFirst": "First expense date",
+  "groupListSortLast": "Last expense date",
+  "groupListSortCreated": "Creation date",
+  "groupListSortOpened": "Last opened",
+  "groupListParticipantCount": "{count, plural, =1{1 participant} other{{count} participants}}",
+  "@groupListParticipantCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupListSpokenFirstExpense": "First expense {date}",
+  "@groupListSpokenFirstExpense": {
+    "description": "A group row's date, as a screen reader says it after the group's name; the list is sorted by this date.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupListSpokenLastExpense": "Last expense {date}",
+  "@groupListSpokenLastExpense": {
+    "description": "A group row's date, as a screen reader says it after the group's name; the list is sorted by this date.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupListSpokenCreated": "Created {date}",
+  "@groupListSpokenCreated": {
+    "description": "A group row's date, as a screen reader says it after the group's name; the list is sorted by this date.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupListSpokenOpened": "Last opened {date}",
+  "@groupListSpokenOpened": {
+    "description": "A group row's date, as a screen reader says it after the group's name; the list is sorted by this date.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "groupListSpokenNoExpenses": "No expenses yet",
+  "@groupListSpokenNoExpenses": {
+    "description": "Said for a group row, sorted by an expense date, whose group has no expenses (shown as —)."
+  },
+  "groupListActions": "Actions for {name}",
+  "@groupListActions": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDetailsEdit": "Edit",
+  "expenseDetailsDiscard": "Discard",
+  "expenseDetailsYou": "{name} (you)",
+  "@expenseDetailsYou": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDetailsOriginalAmount": "Originally {amount}",
+  "@expenseDetailsOriginalAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDetailsPending": "Waiting to sync. You can edit it once it reaches the server.",
+  "expenseDetailsFailedHint": "Retry {retry} to send it again, or discard {discard} it from this device. Discarding can't be undone.",
+  "expenseDetailsNotFound": "This expense is no longer available.",
+  "expenseDetailsLoadFailed": "Couldn't load this expense.",
+  "expenseDetailsNeedsConnection": "Editing or deleting an expense needs a connection.",
+  "expenseDeleteConfirmTitle": "Delete this expense?",
+  "expenseDeleteConfirmBody": "\"{title}\" will be deleted for everyone in the group. This can't be undone.",
+  "@expenseDeleteConfirmBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDeleteFailed": "Couldn't delete this expense. Check your connection and try again.",
+  "errorConnection": "Couldn't reach the server. Check your connection and try again.",
+  "errorUnexpected": "Something went wrong.",
+  "errorDetailsAction": "Details",
+  "groupScreenGroupGone": "This group is no longer on the server.",
+  "expenseDetailsEditFailed": "Couldn't open this expense for editing.",
+  "expenseDeleteFailedUnexpected": "Couldn't delete this expense.",
+  "expenseReceiptsHeading": "Receipts",
+  "receiptAvailableWhenOnline": "Available when online",
+  "receiptLoadFailed": "Couldn't load this receipt.",
+  "receiptOpen": "Open receipt",
+  "receiptViewerTitle": "Receipt {index} of {count}",
+  "@receiptViewerTitle": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "receiptViewerSingle": "Receipt",
+  "appSettingsStorage": "Storage",
+  "appSettingsReceipts": "Receipts on this device",
+  "appSettingsReceiptsNone": "None",
+  "appSettingsReceiptsClear": "Clear",
+  "appSettingsReceiptsClearTitle": "Clear stored receipts?",
+  "appSettingsReceiptsClearBody": "They're removed from this device only. Opened ones download again when you open them, and favorite groups' at their next refresh. Receipts not uploaded yet stay.",
+  "appSettingsReceiptsCleared": "Stored receipts cleared.",
+  "appSettingsReceiptsClearFailed": "Couldn't clear stored receipts.",
+  "bytesKilobytes": "{size} KB",
+  "@bytesKilobytes": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesMegabytes": "{size} MB",
+  "@bytesMegabytes": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseReceiptAdd": "Add receipt",
+  "expenseReceiptTakePhoto": "Take photo",
+  "expenseReceiptChoosePhoto": "Choose from library",
+  "expenseReceiptUploading": "Uploading receipt",
+  "expenseReceiptNotUploaded": "Not uploaded",
+  "expenseReceiptNotUploadedConnection": "A receipt wasn't uploaded: couldn't reach the server. You can still save: it stays on this phone and uploads once you're back online.",
+  "expenseReceiptNotUploadedServer": "A receipt wasn't uploaded. This server may not store receipts. Tap ↻ on it to try again, or remove it; if you save, it stays on this phone.",
+  "expenseReceiptRemove": "Remove receipt",
+  "expenseReceiptPhotoFailed": "Couldn't add this photo.",
+  "expenseReceiptCameraAccessOff": "Camera access is off for Spliit2Go.",
+  "expenseReceiptPhotoAccessOff": "Photo access is off for Spliit2Go.",
+  "expenseReceiptAccessSettings": "Settings",
+  "expenseReceiptAccessRestart": "Changing it in Settings restarts Spliit2Go, and changes you haven't saved here are lost.",
+  "expenseReceiptAccessOk": "OK",
+  "expenseReceiptsWaitBeforeSave": "Wait for receipts to finish uploading.",
+  "expenseReceiptsDiscardBody": "The receipts you added haven't been saved with this expense.",
+  "expenseReceiptsDiscard": "Discard",
+  "expenseDetailsSyncWithoutReceiptsBody": "The receipts that aren't uploaded are removed from this phone, which has their only copy. The expense then syncs without them.",
+  "expenseDetailsSyncWithoutReceiptsTitle": "Sync without its receipts?",
+  "expenseDetailsSyncWithoutReceipts": "Sync without receipts",
+  "expenseDetailsReceiptsNotUploaded": "It has receipts that aren't uploaded. If this server doesn't store receipts, sync {sync} it without them.",
+  "expenseReceiptsUploadOrRemove": "Wait for receipts to upload, or remove the ones that weren't.",
+  "expenseReceiptNotUploadedServerEdit": "A receipt wasn't uploaded. This server may not store receipts. Tap ↻ on it to try again, or remove it.",
+  "expenseReceiptNotUploadedConnectionEdit": "A receipt wasn't uploaded: couldn't reach the server. Tap ↻ on it to try again, or remove it.",
+  "receiptWaitingToUpload": "Not uploaded yet: it uploads once you're back online.",
+  "appSettingsReceiptDownloads": "Download receipts of favorite groups",
+  "appSettingsReceiptDownloadsHint": "To view them offline, when traveling for example.",
+  "appSettingsReceiptDownloadsOff": "Off",
+  "appSettingsReceiptDownloadsWifiOnly": "Wi-Fi only",
+  "appSettingsReceiptDownloadsAlways": "Always",
+  "appSettingsSync": "Sync",
+  "appSettingsAutoRefresh": "Refresh the open group",
+  "appSettingsAutoRefreshHint": "On its own, while the app is open. Archived groups refresh only when you pull down.",
+  "appSettingsAutoRefreshMinutes": "{count, plural, =1{Every minute} other{Every {count} minutes}}",
+  "@appSettingsAutoRefreshMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appSettingsAutoRefreshHour": "Every hour",
+  "appSettingsAutoRefreshOff": "Off",
+  "appSettingsReceiptLimit": "Receipt storage limit",
+  "receiptDownloadsTooltip": "Receipts offline",
+  "receiptDownloadsRunning": "Downloading receipts: {available} of {total}",
+  "@receiptDownloadsRunning": {
+    "placeholders": {
+      "available": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "receiptDownloadsComplete": "All receipts available offline",
+  "receiptDownloadsPartial": "{available} of {total} receipts available offline",
+  "@receiptDownloadsPartial": {
+    "placeholders": {
+      "available": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "receiptDownloadsWaitingForWifi": "Waiting for Wi-Fi: nothing downloads over mobile data.",
+  "receiptDownloadsOffline": "Couldn't reach the server. Downloads continue when you're back online.",
+  "receiptDownloadsNoSpace": "Not enough space: raise the receipt storage limit in App settings, or clear stored receipts.",
+  "receiptDownloadsFailed": "Some receipts couldn't be downloaded.",
+  "receiptDownloadsNoActivityLog": "This server can't tell what changed, so notes and receipts aren't kept up to date for offline. Retry after the server is updated.",
+  "receiptDownloadsUnverified": "Receipts may be out of date",
+  "expenseScanReceipt": "Scan receipt",
+  "expenseScanIntro": "Fills in what it can read, on this phone. The photo is kept with the expense.",
+  "expenseScanReading": "Reading the receipt…",
+  "expenseScanFilled": "Filled in from the receipt. Check it before saving.",
+  "expenseScanHintsOnly": "Nothing was changed. What the receipt says is shown under the fields.",
+  "expenseScanNothing": "Nothing on that photo could be read. The photo is kept.",
+  "expenseScanFailed": "Couldn't read the receipt. The photo is kept.",
+  "expenseScanHint": "Receipt: {value}",
+  "@expenseScanHint": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptLanguage": "Receipt language",
+  "receiptLanguageIntro": "Pick the language printed on the receipt.",
+  "receiptScriptLatin": "English, Français and other Latin-script languages",
+  "receiptLanguageBuiltIn": "Built in",
+  "receiptLanguageDownloaded": "Downloaded",
+  "receiptLanguageNotDownloaded": "Tap to download",
+  "receiptLanguageDownloading": "Downloading…",
+  "receiptLanguageDownload": "Download",
+  "receiptLanguageRemove": "Remove",
+  "receiptLanguageOffline": "Connect to the internet to download it.",
+  "receiptLanguageDownloadFailed": "Couldn't download it. Try again later.",
+  "receiptLanguageRemoveFailed": "Couldn't remove it.",
+  "receiptLanguageRemoveTitle": "Remove {language}?",
+  "@receiptLanguageRemoveTitle": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptLanguageRemoveBody": "Receipts in {language} can't be read until you download it again. Google Play services frees the space later, if no other app uses it.",
+  "@receiptLanguageRemoveBody": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptLanguageNote": "Languages other than the built-in one are downloaded by Google Play services, which shares them with other apps.",
+  "expenseScanModelMissing": "{language} isn't downloaded. Pick it next to Scan receipt to download it again.",
+  "@expenseScanModelMissing": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseScanTryLanguage": "Not the receipt's language? Pick it next to Scan receipt to read the photo again.",
+  "appSettingsAbout": "About Spliit2Go",
+  "aboutTitle": "About",
+  "aboutVersion": "Version {version} ({build})",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutUnofficial": "An unofficial, community-made client for Spliit. It isn't affiliated with or endorsed by the Spliit project.",
+  "aboutSpliitSubtitle": "Free, open-source expense sharing by Sebastien Castiel and contributors",
+  "aboutSourceCode": "Source code",
+  "aboutSupport": "Help and feedback",
+  "aboutSupportSubtitle": "Report a problem or ask a question on GitHub",
+  "aboutPrivacyPolicy": "Privacy policy",
+  "aboutPrivacyPolicySubtitle": "What the app keeps and what it sends",
+  "aboutLicenses": "Open-source licenses",
+  "aboutLicensesSubtitle": "Spliit's and those of the packages this app uses",
+  "aboutLinkFailed": "Couldn't open {url}.",
+  "@aboutLinkFailed": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutCommitUnknown": "unknown",
+  "@aboutCommitUnknown": {
+    "description": "Shown in place of the commit hash after the build number when the build has none, e.g. \"Version 1.0.0 (300 · unknown)\"."
+  },
+  "aboutCopyVersion": "Copy version and commit",
+  "aboutVersionCopied": "Version and commit copied",
+  "expenseRowYouLent": "You lent {amount}",
+  "@expenseRowYouLent": {
+    "description": "Read out for an expense row's green amount: what the others owe you for it.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRowYouOwe": "You owe {amount}",
+  "@expenseRowYouOwe": {
+    "description": "Read out for an expense row's red amount: your share of an expense someone else paid.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRowPaidByYou": "You",
+  "@expenseRowPaidByYou": {
+    "description": "An expense row's payer when it's you. Short: it sits under the amount."
+  },
+  "expenseRowRecurring": "Repeats",
+  "expenseRowHasReceipts": "Has receipts",
+  "expenseRowHasNotes": "Has notes",
+  "expenseRowSpokenPaid": "{payer} paid {amount} on {date}, {category}",
+  "@expenseRowSpokenPaid": {
+    "description": "Read out for an expense row, after its title: who paid, how much, when, and the category's name.",
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRowSpokenYouPaid": "You paid {amount} on {date}, {category}",
+  "@expenseRowSpokenYouPaid": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRowSpokenPaidBack": "{payer} paid back {amount} on {date}, {category}",
+  "@expenseRowSpokenPaidBack": {
+    "description": "As expenseRowSpokenPaid, for a settlement.",
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRowSpokenYouPaidBack": "You paid back {amount} on {date}, {category}",
+  "@expenseRowSpokenYouPaidBack": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRowSpokenNoPayer": "{amount} on {date}, {category}",
+  "@expenseRowSpokenNoPayer": {
+    "description": "As expenseRowSpokenPaid, when the group doesn't know who paid.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "spokenSentenceEnd": ".",
+  "@spokenSentenceEnd": {
+    "description": "Ends each sentence of a spoken label (an expense or group row, the receipts clip), so a screen reader pauses between them."
+  },
+  "expenseDetailsSummary": "Paid by {payer} on {date} under {category}",
+  "@expenseDetailsSummary": {
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    },
+    "description": "The expense details' one-sentence summary (#226), for an expense paid for several people. The fixed words are drawn in a secondary color, the placeholders in the text color. category is the expense's category: \"under\" introduces it (#247)."
+  },
+  "expenseDetailsSummaryFor": "Paid by {payer} for {recipient} on {date} under {category}",
+  "@expenseDetailsSummaryFor": {
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "recipient": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    },
+    "description": "expenseDetailsSummary for an expense paid for one person (#247), named in place of the Paid for list. recipient is that person, or expenseDetailsRecipientYou, expenseDetailsYourself or expenseDetailsThemselves."
+  },
+  "expenseDetailsSummarySettlement": "Paid by {payer} on {date} for {settlement}",
+  "@expenseDetailsSummarySettlement": {
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "settlement": {
+        "type": "String"
+      }
+    },
+    "description": "expenseDetailsSummary for a settlement paid to several people; settlement is expenseDetailsSettlement."
+  },
+  "expenseDetailsSummarySettlementTo": "Paid by {payer} to {recipient} on {date} for {settlement}",
+  "@expenseDetailsSummarySettlementTo": {
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "recipient": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "settlement": {
+        "type": "String"
+      }
+    },
+    "description": "expenseDetailsSummarySettlement paid to one person (#247): money paid back goes to them, hence \"to\". recipient as in expenseDetailsSummaryFor."
+  },
+  "expenseDetailsRepeats": ", repeats {frequency}",
+  "@expenseDetailsRepeats": {
+    "placeholders": {
+      "frequency": {
+        "type": "String"
+      }
+    },
+    "description": "Ends any expenseDetailsSummary* sentence for a repeating expense; frequency is expenseDetailsFrequencyDaily/Weekly/Monthly."
+  },
+  "expenseDetailsFrequencyDaily": "daily",
+  "expenseDetailsFrequencyWeekly": "weekly",
+  "expenseDetailsFrequencyMonthly": "monthly",
+  "expenseDetailsPayerYou": "you",
+  "@expenseDetailsPayerYou": {
+    "description": "The payer in expenseDetailsSummary when it is the active user."
+  },
+  "expenseDetailsRecipientYou": "you",
+  "@expenseDetailsRecipientYou": {
+    "description": "The person paid for in expenseDetailsSummaryFor/SettlementTo when it is the active user."
+  },
+  "expenseDetailsYourself": "yourself",
+  "@expenseDetailsYourself": {
+    "description": "The person paid for when it is also the payer, and the active user."
+  },
+  "expenseDetailsThemselves": "themselves",
+  "@expenseDetailsThemselves": {
+    "description": "The person paid for when it is also the payer, someone other than the active user: gender-neutral."
+  },
+  "expenseDetailsSettlement": "settlement",
+  "@expenseDetailsSettlement": {
+    "description": "What a settlement was paid for, in expenseDetailsSummarySettlement/SettlementTo."
+  },
+  "expenseDetailsShowAmounts": "Show amounts",
+  "expenseDetailsHideAmounts": "Hide amounts",
+  "@expenseDetailsShowAmounts": {
+    "description": "Link before the split method in Paid for, for a split by shares or percentages: shows each person's amount in place of their share."
+  },
+  "@expenseDetailsHideAmounts": {
+    "description": "The same link while amounts are shown: back to each person's share."
+  },
+  "expenseDetailsSentences": "{first}. {second}.",
+  "@expenseDetailsSentences": {
+    "description": "The details sheet's sentence followed by the active user's part: \"Paid by you on Sep 16 for Dining Out. You lent $41.00.\"",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDetailsYouLent": "You lent {amount}",
+  "@expenseDetailsYouLent": {
+    "description": "The active user's part when they paid: what the others owe them.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDetailsYouOwe": "You owe {amount}",
+  "@expenseDetailsYouOwe": {
+    "description": "The active user's part when someone else paid: their share.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseDetailsNotInvolved": "You aren't involved",
+  "@expenseDetailsNotInvolved": {
+    "description": "The active user neither paid nor is among those it was paid for."
+  },
+  "expenseDetailsStatusSyncFailed": "Sync failed",
+  "@expenseDetailsStatusSyncFailed": {
+    "description": "The details sheet's top bar, short: the expense couldn't be sent to the server."
+  },
+  "expenseDetailsStatusOffline": "No connection",
+  "@expenseDetailsStatusOffline": {
+    "description": "The details sheet's top bar, short: the phone is offline, so edit and delete are off."
+  },
+  "expenseDetailsStatusPending": "Waiting to sync",
+  "@expenseDetailsStatusPending": {
+    "description": "The details sheet's top bar, short: added offline, not on the server yet."
+  },
+  "expenseDetailsYouReceived": "You received {amount}",
+  "@expenseDetailsYouReceived": {
+    "description": "A settlement's sentence, when the active user was paid back: their part of it.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@expenseDetailsFailedHint": {
+    "description": "Under a failed sync's top bar. {retry} and {discard} are the top bar buttons' icons, drawn in the text.",
+    "placeholders": {
+      "retry": {
+        "type": "String"
+      },
+      "discard": {
+        "type": "String"
+      }
+    }
+  },
+  "@expenseDetailsReceiptsNotUploaded": {
+    "description": "Under a failed sync's top bar, when it has receipts. {sync} is the Sync without receipts button's icon, drawn in the text.",
+    "placeholders": {
+      "sync": {
+        "type": "String"
+      }
+    }
+  },
+  "appSettingsExchangeRates": "Exchange rates",
+  "appSettingsExchangeRatesSaved": "Saved for offline use: rates of {date} · {count} currencies",
+  "@appSettingsExchangeRatesSaved": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appSettingsExchangeRatesNone": "None saved",
+  "appSettingsExchangeRatesUpdate": "Update",
+  "appSettingsExchangeRatesUpdated": "Exchange rates updated.",
+  "appSettingsExchangeRatesOffline": "Couldn't reach the exchange rate service.",
+  "appSettingsExchangeRatesFailed": "Couldn't update exchange rates.",
+  "expensePaidIn": "Paid in",
+  "expenseExchangeRate": "Exchange rate",
+  "expenseFieldName": "{name}, {detail}",
+  "@expenseFieldName": {
+    "description": "A field's name for a screen reader: a person and what's typed for them (\"Cid, Shares\"), or the exchange rate and its pair (\"Exchange rate, EUR/JPY\").",
+    "placeholders": {
+      "name": {"type": "String"},
+      "detail": {"type": "String"}
+    }
+  },
+  "expenseAmountNotYetKnown": "Not yet known",
+  "expenseRateLoading": "Getting the exchange rate…",
+  "expenseRateTyped": "Using the rate you entered.",
+  "expenseRateSaved": "Using the rate saved with this expense.",
+  "expenseRateNone": "No published rate for this pair. Enter the rate yourself.",
+  "expenseRateUnavailable": "Couldn't reach the rates service. Enter the rate yourself.",
+  "expenseUsePublishedRate": "Use the published rate",
+  "expenseRatePublished": "{pair} {rate} is the published rate on {date}.",
+  "@expenseRatePublished": {
+    "placeholders": {
+      "pair": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseRatePublishedOffline": "Offline: {pair} {rate} is the last published rate saved, from {date}.",
+  "@expenseRatePublishedOffline": {
+    "placeholders": {
+      "pair": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseInCurrency": "In {currency}",
+  "@expenseInCurrency": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseSwapRate": "Swap the currencies",
+  "expenseConvertedAmountInvalid": "The amount in the group's currency rounds to nothing. Change the amount or the rate.",
+  "expenseFromLabel": "From",
+  "expenseToHeading": "To",
+  "expenseSettlementTotal": "Total",
+  "expenseSettlementDefaultTitle": "Settlement",
+  "expenseListTwo": "{first} and {second}",
+  "@expenseListTwo": {
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseListSeparator": ", ",
+  "expenseSettlementNoRecipient": "Enter an amount for at least one person",
+  "expenseInvalidRate": "Enter a rate greater than zero",
+  "expenseCommentsHeading": "Comments",
+  "expenseCommentsEmpty": "No comments yet.",
+  "expenseCommentHint": "Add a comment",
+  "expenseCommentSend": "Send comment",
+  "expenseCommentsLoadFailed": "Couldn't load the comments.",
+  "expenseCommentAddFailed": "Couldn't save the comment.",
+  "expenseDetailsMultiplePayers": "several people",
+  "expenseEditComplexOnWeb": "This expense has several payers or line items. Edit it on the web for now; this app would collapse them.",
+  "welcomeTitle": "Spliit Cloud",
+  "welcomeTagline": "Split expenses with your groups, on every device.",
+  "welcomeCreateAccount": "Create an account",
+  "welcomeSignIn": "Sign in",
+  "welcomeRecovery": "I have a recovery link",
+  "welcomeServer": "Server: {server}",
+  "@welcomeServer": {
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "welcomeChangeServer": "Change server",
+  "welcomeServerTitle": "Spliit server",
+  "welcomeServerHint": "spliit.cloud",
+  "welcomeServerInvalid": "Enter a server address, like spliit.cloud.",
+  "createAccountTitle": "Create your account",
+  "createAccountNameLabel": "Your name",
+  "createAccountNameHelper": "This is the name your groups will see.",
+  "createAccountSubmit": "Create account",
+  "createAccountFailed": "Could not create the account.",
+  "signInTitle": "Sign in",
+  "signInEmail": "Email",
+  "signInPassword": "Password",
+  "signInSubmit": "Sign in",
+  "signInFailed": "Could not sign in.",
+  "signInForgot": "Forgot password?",
+  "passwordResetSent": "If that email has an account, a reset link is on its way.",
+  "signUpEmailTitle": "Sign up with email",
+  "signUpEmailSubmit": "Create email account",
+  "signUpEmailSentTitle": "Check your email",
+  "signUpEmailSent": "Open the verification link we sent, then come back and sign in.",
+  "signUpEmailFailed": "Could not create the email account.",
+  "signInNoAccount": "No account yet? Create one",
+  "recoveryTitle": "Recovery link",
+  "recoveryPasteLabel": "Recovery link or code",
+  "recoveryPasteHelper": "The link you saved when you created your account.",
+  "recoverySubmit": "Recover account",
+  "recoveryFailed": "That recovery link is not valid.",
+  "recoverySaveTitle": "Save your recovery link",
+  "recoverySaveBody": "This link is the only way back into an anonymous account. Keep it somewhere safe — anyone with it can sign in as you.",
+  "recoveryCopy": "Copy link",
+  "recoveryCopied": "Recovery link copied.",
+  "recoveryShare": "Share",
+  "recoveryDone": "I saved it",
+  "recoverySkip": "Not now",
+  "recoverySetupFailed": "Could not create a recovery link.",
+  "accountTitle": "Account",
+  "accountAnonymous": "Anonymous account",
+  "accountEmail": "Email",
+  "accountRecovery": "Recovery link",
+  "accountRecoveryReady": "Saved",
+  "accountRecoveryMissing": "Not saved",
+  "accountRecoveryCreate": "Create recovery link",
+  "accountRecoveryNew": "Replace link",
+  "accountServer": "Server",
+  "accountSignOut": "Sign out",
+  "accountSignOutBody": "Your groups stay on the server; this device forgets the session.",
+  "accountNameEdit": "Edit name",
+  "accountNameUpdated": "Name updated.",
+  "accountNameFailed": "Could not update your name.",
+  "accountSignOutFailed": "Could not sign out.",
+  "accountManageWeb": "Manage account on the web",
+  "accountManageWebBody": "Passkeys, email, connected apps and privacy.",
+  "accountInvitations": "Invitations",
+  "accountInvitationPending": "Invitation pending",
+  "accountInvitationFrom": "From {name}",
+  "@accountInvitationFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "accountInvitationAccept": "Join",
+  "accountInvitationAccepted": "You joined {name}.",
+  "@accountInvitationAccepted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "friendsTitle": "Friends",
+  "friendsEmpty": "Friends appear here once you share a group with them.",
+  "friendsLoadFailed": "Couldn't load your friends.",
+  "friendsOneSharedGroup": "1 shared group",
+  "friendsSharedGroups": "{count} shared groups",
+  "@friendsSharedGroups": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "budgetsTitle": "Budgets",
+  "budgetsLoadFailed": "Couldn't load budgets.",
+  "budgetsEmpty": "No budgets yet. Create one on the web to track a group's spending.",
+  "budgetsMonthly": "Monthly",
+  "budgetsWeekly": "Weekly",
+  "budgetsYearly": "Yearly",
+  "budgetsCustom": "Custom period",
+  "budgetsSpentOf": "{spent} of {limit}",
+  "@budgetsSpentOf": {
+    "placeholders": {
+      "spent": {"type": "String"},
+      "limit": {"type": "String"}
+    }
+  },
+  "budgetsRemaining": "{amount} left",
+  "@budgetsRemaining": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "budgetsOver": "{amount} over",
+  "@budgetsOver": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "budgetsDaysLeft": "{count, plural, =1{1 day left} other{{count} days left}}",
+  "@budgetsDaysLeft": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "cloudSignInRequired": "Sign in again to continue."
+}
+

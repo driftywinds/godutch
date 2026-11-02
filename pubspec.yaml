@@ -1,0 +1,75 @@
+name: spliit2go
+description: Unofficial, offline-capable Flutter client for Spliit Cloud.
+publish_to: 'none'
+# Build 300: above every build #174's scripts/flutter_stamped numbered by
+# commit count (249-252 seen), so a plain build over one is an upgrade, not a
+# downgrade that makes `flutter run` uninstall the app (#176).
+version: 1.0.1+302
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # No explicit version range: flutter_localizations (an SDK
+  # package) pins intl to an exact version tied to the installed
+  # Flutter SDK release, and that pin varies across stable
+  # versions/channels -- a caret range here (e.g. ^0.19.0) can
+  # conflict with whatever this checkout's Flutter actually
+  # requires. Letting pub resolve to flutter_localizations' own
+  # constraint is the standard approach for this pairing.
+  intl: any
+  http: ^1.2.0
+  drift: ^2.16.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
+  connectivity_plus: ^6.0.0
+  shared_preferences: ^2.2.3
+  uuid: ^4.4.0
+  lucide_icons_flutter: ^3.1.20
+  app_links: ^7.2.1
+  flutter_slidable: ^4.0.3
+  share_plus: ^13.3.0
+  image_picker: ^1.2.3
+  image: ^4.10.1
+  package_info_plus: ^10.2.2
+  url_launcher: ^6.3.2
+  flutter_markdown_plus: ^1.0.12
+  # Which of a note's images are inside a link (#330), parsed as
+  # flutter_markdown_plus does.
+  markdown: ^7.3.1
+  # Spliit Cloud stores each expense's instant plus its IANA time zone;
+  # the app renders the calendar date in that zone, not the phone's.
+  timezone: ^0.11.2
+  flutter_timezone: ^5.1.1
+
+dev_dependencies:
+  shared_preferences_platform_interface: ^2.4.2
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  drift_dev: ^2.16.0
+  build_runner: ^2.4.9
+
+flutter:
+  # The app plain `flutter run`/`flutter build` make: dev, which installs
+  # beside the real app; `--flavor prod` for that one (#219).
+  default-flavor: dev
+  assets:
+    - assets/spliit2go-logo.png
+  uses-material-design: true
+  generate: true
+
+# SQLite for drift, through package:sqlite3's build hook (doc/hook.md):
+# the copy it bundles on Android, and the system's on iOS. iOS's own
+# SQLite is covered by Apple's privacy manifest; a bundled one is a
+# framework that would need its own (#108, #172).
+hooks:
+  user_defines:
+    sqlite3:
+      source:
+        ios: system
+        default: sqlite3

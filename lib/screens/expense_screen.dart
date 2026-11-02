@@ -1,0 +1,1171 @@
+import 'dart:async' show unawaited;
+
+import 'package:flutter/foundation.dart' show TargetPlatform, Uint8List, defaultTargetPlatform, visibleForTesting;
+import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show Assertiveness, SemanticsService;
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:intl/intl.dart' show NumberFormat;
+import 'package:uuid/uuid.dart';
+
+import '../widgets/app_switch.dart';
+import '../api/spliit_client.dart';
+import '../db/app_database.dart';
+import '../services/exchange_rates.dart';
+import 'expense_form/expense_form_model.dart';
+import 'expense_form/form_text.dart';
+import '../models/category.dart';
+import '../models/currency.dart';
+import '../models/expense.dart';
+import '../models/group.dart';
+import '../models/default_split.dart';
+import '../l10n/category_names.dart';
+import '../l10n/context_l10n.dart';
+import '../services/active_user.dart';
+import '../services/category_store.dart';
+import '../sync/outbox.dart';
+import '../utils/date_format.dart';
+import '../widgets/currency_picker.dart';
+import '../widgets/category_icon.dart';
+import '../widgets/category_picker.dart';
+import '../widgets/confirm_dialog.dart';
+import '../widgets/error_message.dart';
+import '../services/error_reporting.dart';
+import '../services/receipt_cache.dart';
+import '../services/receipt_fill.dart';
+import '../services/receipt_photo.dart';
+import '../services/receipt_scanner.dart';
+import '../services/settings_service.dart';
+import '../widgets/receipt_attachments.dart';
+import '../widgets/receipt_language.dart';
+import '../theme.dart';
+import '../utils/haptics.dart';
+import '../widgets/app_menu.dart';
+import '../widgets/bottom_inset.dart';
+import '../widgets/grouped_section.dart';
+import '../widgets/notes_text.dart';
+import '../utils/markdown_note.dart';
+import '../widgets/top_bar_buttons.dart';
+import 'expense_form/currency_card.dart';
+import 'expense_form/receipt_scan_card.dart';
+import 'expense_form/rate_lookup.dart';
+import 'expense_form/receipt_scan_controller.dart';
+import 'expense_form/split_card.dart';
+import '../widgets/participant_colors.dart';
+import '../widgets/group_monogram.dart';
+import '../widgets/participant_sheet.dart';
+
+/// Adds -- or, given [existingExpense], edits -- an expense. A settlement
+/// ([Expense.isSettlement]) uses the same screen with its own fields: From
+/// and To in place of Paid by and Paid for (#262), and the kind button
+/// switches between the two (#272). Balances' "Mark as paid" opens it
+/// with a settlement draft ([initialDraft]), so a partial payment can be
+/// entered. Renamed from AddExpenseScreen/add_expense_screen.dart (issue #21) once
+/// "add expense screen" stopped describing what this actually covers.
+///
+/// Adding works online or offline: it always writes to the local db first
+/// as a [pending] row -- so the UI updates instantly and the same code
+/// path works with or without connectivity -- then tries an immediate
+/// sync; if that fails (offline, or the request errors) the row just
+/// stays pending for the outbox to pick up later.
+///
+/// Editing (issue #17) is **online-only** -- there's no offline-edit
+/// queueing path (see decisions/mobile-platform.md's view+add-only
+/// offline scope) -- and saves straight to the server via
+/// [SpliitClient.updateExpense]. IMPORTANT: Spliit's server has no
+/// conflict-prevention for edits at all (see that method's doc comment)
+/// -- the only mitigation this app makes is that callers should fetch the
+/// expense fresh (via [SpliitClient.fetchExpense]) immediately before
+/// opening this screen in edit mode, to keep the editing window as short
+/// as possible. This screen itself doesn't re-fetch; it trusts whatever
+/// [existingExpense] it's given.
+///
+/// Supports all four of Spliit's split modes (evenly / by shares / by
+/// percentage / by amount) plus excluding participants from "paid for",
+/// matching the web app's "Advanced splitting options".
+///
+/// Field set matches Spliit's own add/edit expense form (issue #16):
+/// title, category, date, repeat, "paid in" a different currency and its
+/// rate (#252), amount, paid by, paid for with its split mode and
+/// save-as-default-split, notes, and receipts (#123): photos are uploaded
+/// as they're added, so they're documents by the time the expense is
+/// saved; see [ReceiptAttachmentsController] for what happens to one that
+/// isn't uploaded. The form's state is [ExpenseFormModel]; its cards are
+/// in expense_form/ (see docs/decisions/expense-form-restyle.md).
+///
+/// A new expense can be filled in from a receipt (#125 on Android, #155
+/// on the iPhone): Scan receipt reads it on the phone, keeps the photo
+/// with the expense, and fills in only what the user hasn't; see
+/// [receiptFill]. The receipt's language is picked beside it (#153).
+///
+/// How this screen's code is laid out, its files and what each owns:
+/// docs/expense-screen-code.md.
+class ExpenseScreen extends StatefulWidget {
+  final SpliitClient client;
+  final AppDatabase db;
+  final Outbox outbox;
+  final Group group;
+  /// This device's saved "active user" (see SettingsService), if any --
+  /// a new expense's "Paid by" via [resolveDefaultPaidBy] (an edit's
+  /// comes from the expense itself), and "(you)" and the emerald
+  /// monogram in the form (#260). Passed in rather than loaded here so
+  /// this screen doesn't need SharedPreferences of its own to test.
+  final String? activeUserId;
+
+  /// When set, this screen edits [existingExpense] in place instead of
+  /// creating a new one -- see the class doc comment for edit mode's
+  /// online-only, no-conflict-prevention caveats.
+  final Expense? existingExpense;
+
+  /// A starting draft for a brand-new expense (ignored when
+  /// [existingExpense] is set) -- every field is pre-filled from it, but
+  /// saving still creates a new expense with a fresh id via the normal
+  /// add path (local pending row + outbox), unlike [existingExpense]'s
+  /// online-only update. Used by balances_screen.dart's "mark as paid"
+  /// (issue #22) to open this screen pre-filled with the suggested
+  /// settlement's amount/payer/payee/title rather than recording it
+  /// directly, so the amount can be edited for a partial payment --
+  /// matching the web/iOS apps' own settle-up flow.
+  final Expense? initialDraft;
+
+  /// Where receipt photos come from (#123); a fake in widget tests.
+  final ReceiptPhotoPicker receiptPicker;
+
+  /// Prepares a picked photo for upload; see [prepareReceiptPhoto].
+  @visibleForTesting
+  final Future<PreparedReceipt> Function(Uint8List)? prepareReceipt;
+
+  /// Reads receipts on the phone (#125); a fake in widget tests.
+  final ReceiptScanner receiptScanner;
+
+  /// Opens this app's page in the phone's Settings, offered when the
+  /// camera or photo library is off for it; [openAppSettings] on the
+  /// iPhone when null, and nothing on Android, where image_picker uses
+  /// other apps and doesn't ask.
+  @visibleForTesting
+  final Future<bool> Function()? openSettings;
+
+  /// Where the receipt language picked in each group is remembered
+  /// (#153); [SettingsService] when null.
+  final SettingsService? settings;
+
+  const ExpenseScreen({
+    super.key,
+    required this.client,
+    required this.db,
+    required this.outbox,
+    required this.group,
+    this.activeUserId,
+    this.existingExpense,
+    this.initialDraft,
+    this.receiptPicker = const ImagePickerReceiptPhotoPicker(),
+    this.prepareReceipt,
+    this.receiptScanner = const PlatformReceiptScanner(),
+    this.settings,
+    this.openSettings,
+  });
+
+  bool get isEditing => existingExpense != null;
+
+  @override
+  State<ExpenseScreen> createState() => _ExpenseScreenState();
+}
+
+class _ExpenseScreenState extends State<ExpenseScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _scroll = ScrollController();
+
+  /// What a refused save scrolls to, besides the fields (#259): the split's
+  /// footer, and a calculated amount that can't be saved.
+  final _paidForFooterKey = GlobalKey();
+  final _calculatedKey = GlobalKey();
+
+  /// What's typed and picked, and what it works out to (#258). Made once
+  /// the locale is known, so an edit's numbers are written in its decimal
+  /// separator from the start (#289).
+  late final ExpenseFormModel _m;
+  bool _started = false;
+  bool _saving = false;
+
+  /// The receipts in this form (#123).
+  late final _receipts = ReceiptAttachmentsController(
+    client: widget.client,
+    cache: ReceiptCache.of(widget.db),
+    groupId: widget.group.id,
+    ledgerId: widget.group.ledgerId,
+    existing: widget.existingExpense?.documents ?? const [],
+    prepare: widget.prepareReceipt,
+  );
+  String? _saveError;
+  String? _saveErrorDiagnostics;
+
+  /// True once Save has been pressed at least once -- gates whether the
+  /// "Paid for" footer shows a blocking validation error or the running
+  /// "still to allocate" hint (issue #29, decisions/paid-for-split-ux-spec.md
+  /// section 6): a fresh form shouldn't greet the user with red text
+  /// before they've done anything.
+  bool _hasAttemptedSave = false;
+
+  /// Notes shown as they'll look, not as typed (#311): links, and
+  /// markdown if it's on.
+  bool _notesPreview = false;
+
+  /// Edit puts the cursor back in the notes (Kenneth).
+  final _notesFocus = FocusNode();
+
+  /// Scan receipt's state (#125, #153); the screen picks the photo.
+  late final _scan = ReceiptScanController(
+    scanner: widget.receiptScanner,
+    settings: _settings,
+    groupId: widget.group.id,
+    model: _m,
+    onDateFilled: () => unawaited(_rates.lookUp()),
+  );
+
+  /// The published rate and the pair's order (#252, #261).
+  late final _rates = RateLookup(rates: ExchangeRates.of(widget.db), settings: _settings, model: _m);
+
+  // The server's list as last read, or Spliit's seeded one until this
+  // device has read it: offline, the picker still has every category
+  // (#132).
+  List<Category> _categories = cloudCategories;
+
+  /// The fetched [Category] for the form's category, or null if it isn't in
+  /// [_categories] (yet, or ever). Its display name is translated at
+  /// presentation time via [localizedCategoryLabel]; the model's own
+  /// English `name`/`grouping` stay untouched, since the icon lookup keys
+  /// on them.
+  Category? get _knownCategory {
+    for (final c in _categories) {
+      if (c.id == _m.category) return c;
+    }
+    return null;
+  }
+
+  /// The currently-selected category, falling back to a synthesized
+  /// placeholder if the form's category isn't (yet, or ever) in [_categories] --
+  /// keeps the picker's "current selection" display never crashing on a
+  /// category id this device hasn't fetched a name for.
+  Category get _selectedCategory => _categories.firstWhere(
+        (c) => c.id == _m.category,
+        orElse: () => Category(id: _m.category, name: 'Category ${_m.category}', grouping: 'Other'),
+      );
+
+  /// The form's first frame: [_m] is made, and what it needs fetched.
+  void _start(String decimalSeparator) {
+    _m = ExpenseFormModel(
+      group: widget.group,
+      existing: widget.existingExpense,
+      draft: widget.initialDraft,
+      activeUserId: widget.activeUserId,
+      decimalSeparator: decimalSeparator,
+    );
+    // Every change to the form shows: the amounts, previews and footer
+    // are worked out from it.
+    _m.addListener(_changed);
+    // A conversion opened without a rate gets one (#252); a saved rate is
+    // the record and stays, with the published one quoted under it (#261).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _m.converting) _rates.pairChanged();
+    });
+    // The model pre-fills an edit or a draft the same way: a draft only
+    // differs in _save() (new id, normal add path), not in what's shown.
+    if (widget.existingExpense == null && widget.initialDraft == null) {
+      // Only for a plain brand-new expense -- not for edit (the model
+      // above already set the real split) and not for a draft like
+      // balances_screen's "mark as paid" (its settlement split is the
+      // whole point of that flow and shouldn't be overridden by a
+      // remembered default -- isSplitWorthRemembering excludes
+      // settlements for the same reason on the write side).
+      _loadDefaultSplit();
+    }
+    _loadCategories();
+    _scan.addListener(_changed);
+    _rates.addListener(_changed);
+    if (_offersScan) {
+      unawaited(_scan.loadLanguage(WidgetsBinding.instance.platformDispatcher.locale.languageCode));
+    }
+  }
+
+  SettingsService get _settings => widget.settings ?? SettingsService();
+
+  /// The receipt language picker (#153). Picking another language after a
+  /// scan reads that scan's photo again.
+  Future<void> _pickReceiptLanguage() async {
+    _dropFocus();
+    final picked = await showReceiptLanguagePicker(
+      context,
+      scanner: widget.receiptScanner,
+      selected: _scan.script,
+      installed: _scan.installed,
+      onInstalledChanged: (installed) {
+        if (mounted) _scan.installedChanged(installed);
+      },
+    );
+    if (picked == null || !mounted) return;
+    await _scan.pickLanguage(picked);
+  }
+
+  /// What's on this device, then the server's list if it's read now.
+  /// Read, not watched: the form is short-lived.
+  Future<void> _loadCategories() async {
+    final store = CategoryStore.of(widget.db);
+    Future<void> show() async {
+      final cats = await store.current(widget.client);
+      if (mounted) setState(() => _categories = _scan.categories = cats);
+    }
+
+    await show();
+    await store.refresh(widget.client);
+    await show();
+  }
+
+  /// Applies this group's remembered "Paid for" split (issue #29,
+  /// decisions/paid-for-split-ux-spec.md section 7), if one exists and
+  /// still applies to the group's current participants. Async because
+  /// reading it means a DB query -- same fire-and-forget-with-setState
+  /// pattern as [_loadCategories], so a slow read never blocks the form
+  /// from being usable in the meantime (it just starts as plain
+  /// "everyone, evenly" and switches over once the read completes).
+  Future<void> _loadDefaultSplit() async {
+    final split = await widget.db.defaultSplitFor(widget.group.id);
+    if (!mounted || split == null) return;
+    _m.applyDefaultSplit(split);
+  }
+
+  void _changed() => setState(() {});
+
+  @override
+  void dispose() {
+    _m.removeListener(_changed);
+    _scan.removeListener(_changed);
+    _rates.removeListener(_changed);
+    _rates.dispose();
+    _scan.dispose();
+    _m.dispose();
+    _receipts.dispose();
+    _scroll.dispose();
+    _notesFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addReceipt(ReceiptSource source) async {
+    try {
+      final photo = await widget.receiptPicker.pick(source);
+      if (photo == null || !mounted) return;
+      await _receipts.add(photo);
+    } catch (e, st) {
+      _photoFailed(e, st);
+    }
+  }
+
+  /// The picker or an unreadable photo; upload failures stay on the
+  /// photo instead. A missing camera (a simulator) lands here too. The
+  /// camera or library being off for the app is explained, with a way to
+  /// Settings, rather than reported.
+  void _photoFailed(Object e, StackTrace st) {
+    if (e is ReceiptAccessOff) {
+      if (mounted) {
+        unawaited(showReceiptAccessOff(context, e.source,
+            openSettings: widget.openSettings ?? (defaultTargetPlatform == TargetPlatform.iOS ? openAppSettings : null)));
+      }
+      return;
+    }
+    final error = ErrorReporter.instance.report(e, st, operation: 'Adding a receipt photo');
+    if (mounted) {
+      showErrorSnackBar(context, context.l10n.expenseReceiptPhotoFailed, diagnostics: error.diagnostics);
+    }
+  }
+
+  /// Offered for a new expense on a phone that reads receipts (#125). A
+  /// draft (Balances' "mark as paid") is already filled in.
+  bool get _offersScan => !widget.isEditing && widget.initialDraft == null && widget.receiptScanner.isSupported;
+
+  /// Scan receipt (#125): the Document Scanner, or the camera and library
+  /// when it can't run. On the iPhone, whose document camera can't import
+  /// a photo, camera or library is asked first, and the camera is the
+  /// document camera (#155). The photo joins the receipts like any other,
+  /// and is read as soon as it's prepared, while it uploads.
+  Future<void> _scanReceipt() async {
+    _dropFocus();
+    try {
+      final scanner = widget.receiptScanner;
+      ReceiptSource? asked;
+      if (!scanner.scannerImportsPhotos) {
+        asked = await chooseReceiptSource(context);
+        if (asked == null || !mounted) return;
+      }
+      Uint8List? photo;
+      if (asked == ReceiptSource.library) {
+        photo = await widget.receiptPicker.pick(ReceiptSource.library);
+      } else {
+        try {
+          photo = await scanner.scanDocument();
+        } on ReceiptScannerUnavailable {
+          if (!mounted) return;
+          final source = asked ?? await chooseReceiptSource(context);
+          if (source == null) return;
+          photo = await widget.receiptPicker.pick(source);
+        }
+      }
+      if (photo == null || !mounted) return;
+      await _receipts.add(photo, onPrepared: _scan.read);
+    } catch (e, st) {
+      _photoFailed(e, st);
+    }
+  }
+
+  /// "Receipt: …" under a field, for what the scan didn't fill in.
+  String? _scanHint(String? value) => value == null ? null : context.l10n.expenseScanHint(value);
+
+  Widget _scanSection(BuildContext context) =>
+      ReceiptScanCard(scan: _scan, onScan: _scanReceipt, onPickLanguage: _pickReceiptLanguage);
+
+  /// Whether closing loses anything (#259): a change to the form, or to
+  /// its receipts.
+  bool get _hasChanges =>
+      _m.hasChanges ||
+      _receipts.hasNew ||
+      _receipts.kept.length != (widget.existingExpense?.documents.length ?? 0);
+
+  /// Closing with changes asks first (#259); photos added here, which
+  /// nothing else keeps, are named (#123).
+  Future<void> _confirmLeave() async {
+    final l10n = context.l10n;
+    final discard = await showConfirmDialog(context,
+        title: l10n.expenseDiscardChangesTitle,
+        message: [if (_receipts.hasNew) l10n.expenseReceiptsDiscardBody],
+        action: l10n.expenseReceiptsDiscard,
+        destructive: true);
+    if (discard && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final separator = NumberFormat.decimalPattern(Localizations.localeOf(context).toString()).symbols.DECIMAL_SEP;
+    if (_started) {
+      _m.decimalSeparator = separator;
+    } else {
+      _started = true;
+      _start(separator);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _receipts,
+      builder: (context, child) => PopScope(
+        canPop: !_hasChanges,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _confirmLeave();
+        },
+        child: child!,
+      ),
+      child: _form(context),
+    );
+  }
+
+  /// The title says what's being added or edited (#259).
+  String _title(BuildContext context) => switch ((widget.isEditing, _m.isSettlement)) {
+        (false, false) => context.l10n.expenseAddTitle,
+        (false, true) => context.l10n.expenseAddSettlementTitle,
+        (true, false) => context.l10n.expenseEditTitle,
+        (true, true) => context.l10n.expenseEditSettlementTitle,
+      };
+
+  /// One tap switches between an expense and a settlement (#259, Kenneth
+  /// on a device: a title menu's arrow is easy to miss, and a capsule
+  /// switch costs the title). The icon is the kind it switches to.
+  Widget _kindButton(BuildContext context) {
+    final l10n = context.l10n;
+    final toSettlement = !_m.isSettlement;
+    return IconButton(
+      icon: Icon(_m.isSettlement ? Icons.receipt_long_outlined : Icons.payments_outlined),
+      tooltip: _converts(toSettlement)
+          ? (toSettlement ? l10n.expenseConvertToSettlement : l10n.expenseConvertToExpense)
+          : (toSettlement ? l10n.expenseSwitchToSettlement : l10n.expenseSwitchToExpense),
+      onPressed: _saving ? null : _switchKind,
+    );
+  }
+
+  /// Whether switching to [toSettlement] converts a saved expense or
+  /// settlement into the other kind (#272): rare, so it's said as such.
+  /// A new one, or an edit going back to its saved kind, just switches.
+  bool _converts(bool toSettlement) => switch (widget.existingExpense) {
+        final existing? => toSettlement != existing.isSettlement,
+        null => false,
+      };
+
+  /// Asks first (#272): an edit, when it's switching away from its saved
+  /// kind; a new one, when anything but the kind has been changed.
+  Future<void> _switchKind() async {
+    final l10n = context.l10n;
+    final toSettlement = !_m.isSettlement;
+    final converts = _converts(toSettlement);
+    final asks = converts || (widget.existingExpense == null && (_m.hasChangesBeyondKind || _receipts.hasNew));
+    if (asks) {
+      _dropFocus();
+      final change = await showConfirmDialog(
+        context,
+        title: switch ((converts, toSettlement)) {
+          (true, true) => l10n.expenseConvertToSettlementTitle,
+          (true, false) => l10n.expenseConvertToExpenseTitle,
+          (false, true) => l10n.expenseChangeToSettlementTitle,
+          (false, false) => l10n.expenseChangeToExpenseTitle,
+        },
+        message: [
+          if (converts) toSettlement ? l10n.expenseConvertExistingToSettlement : l10n.expenseConvertExistingToExpense,
+          toSettlement ? l10n.expenseSettlementMeaning : l10n.expenseExpenseMeaning,
+          if (converts) l10n.expenseConversionSavedOnSave,
+        ],
+        action: converts ? l10n.expenseKindConvert : l10n.expenseKindChange,
+        // Converting a saved one is rare, and red so it stays so.
+        destructive: converts,
+      );
+      if (!change || !mounted) return;
+    }
+    _m.setSettlement(toSettlement, title: l10n.expenseSettlementDefaultTitle);
+  }
+
+  /// "Paid by" (#260): the payer by their monogram, opening the
+  /// participant sheet.
+  ///
+  /// It's the split card's first row (Kenneth, 2026-10-10: a card of its
+  /// own looked stranded).
+  Widget _paidByRow(BuildContext context) {
+    final l10n = context.l10n;
+    final participants = widget.group.participants;
+    final payer = participants.where((p) => p.id == _m.paidBy).firstOrNull;
+    // A settlement's is "From" (#262).
+    final label = _m.isSettlement ? l10n.expenseFromLabel : l10n.expensePaidByLabel;
+    // Not a trailing: ListTile gives that all the width it asks for, and a
+    // long name squeezed "From" to a letter a line. A name that doesn't
+    // fit beside the label goes under it (#263).
+    return GroupedRow(
+        title: formLabel(context, label),
+        value: payer == null
+            ? null
+            : Row(mainAxisSize: MainAxisSize.min, children: [
+                Monogram(
+                    name: payer.name,
+                    color: participantColors(participants, widget.activeUserId)[payer.id]!,
+                    radius: 12),
+                const SizedBox(width: 8),
+                Flexible(child: _value(context, participantName(context, payer, widget.activeUserId))),
+              ]),
+        onTap: () async {
+          _dropFocus();
+          final picked = await showParticipantSheet(context,
+              title: label,
+              participants: participants,
+              checkedId: _m.paidBy,
+              activeUserId: widget.activeUserId);
+          if (picked != null) _m.paidBy = picked;
+        },
+      );
+  }
+
+  /// A field on a card, which draws no box of its own.
+  /// Notes, and whether they're markdown (#311): the switch saves them
+  /// behind the marker. Preview / Edit, a link on the caption's line as
+  /// Select all/none, for any note (Kenneth): links show too, and a long
+  /// note reads better. The count and the switch share one slim line
+  /// under the field.
+  Widget _notesSection(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    // The rows' size in the secondary color, as the field's hint
+    // (Kenneth): onSurfaceVariant is darker, the text's own grey.
+    final muted = theme.textTheme.bodyLarge?.copyWith(color: SpliitColors.of(context).secondaryContent);
+    final preview = _notesPreview;
+    final fieldMax = expenseNotesMax - (_m.notesMarkdown ? markdownMarker.length + 1 : 0);
+    return GroupedSection(
+      caption: l10n.expenseNotesLabel,
+      // Its target 48pt (#263), reaching over the caption's space and the
+      // card's top, as "Use the published rate".
+      captionTrailing: Overhang(
+        reach: 12,
+        child: TextButton(
+        onPressed: () {
+          final editing = _notesPreview;
+          setState(() => _notesPreview = !_notesPreview);
+          if (editing) {
+            // Once the field is back on stage.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _notesFocus.requestFocus();
+            });
+          } else {
+            FocusScope.of(context).unfocus();
+          }
+        },
+        style: compactTextButtonStyle(reach: 12),
+        child: Text(_notesPreview ? l10n.expenseNotesEdit : l10n.expenseNotesPreview),
+      )),
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (preview)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: _m.notes.isEmpty
+                    ? Text(l10n.expenseNotesPreviewEmpty, style: muted)
+                    : NotesText(_m.notes),
+              ),
+            // Kept in the form under Preview, so the limit is still checked
+            // on save (PR #312 review).
+            Offstage(
+              offstage: preview,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: TextFormField(
+                  controller: _m.notesController,
+                  focusNode: _notesFocus,
+                  // The count is on the line under it, beside the switch.
+                  decoration: InputDecoration(hintText: l10n.expenseNotesHint, counterText: ''),
+                  minLines: 1,
+                  maxLines: 12,
+                  // Spliit's limit, the marker included.
+                  maxLength: fieldMax,
+                  // Typing stops at the limit, but a note already near it can
+                  // pass it when the switch adds the marker: said, not cut.
+                  validator: (_) => switch (_m.notes.length - expenseNotesMax) {
+                    > 0 && final over => l10n.expenseNotesTooLong(over),
+                    _ => null,
+                  },
+                ),
+              ),
+            ),
+            // A row's 48 (GroupedRow.oneLineMinHeight), the switch in its
+            // middle, ending where the rows' switches do (Kenneth): the
+            // switch takes only the room it draws in now (AppSwitch).
+            Container(
+              constraints: const BoxConstraints(minHeight: GroupedRow.oneLineMinHeight),
+              alignment: AlignmentDirectional.centerStart,
+              padding: const EdgeInsetsDirectional.symmetric(horizontal: GroupedSection.inset),
+              // On one line while they fit; at large text the switch goes
+              // under the count, at the end.
+              child: OverflowBar(
+                alignment: MainAxisAlignment.spaceBetween,
+                overflowAlignment: OverflowBarAlignment.end,
+                children: [
+                  ListenableBuilder(
+                    listenable: _m.notesController,
+                    builder: (context, _) {
+                      final count = _m.notesController.text.characters.length;
+                      return Text('$count/$fieldMax',
+                          style: count > fieldMax ? muted?.copyWith(color: theme.colorScheme.error) : muted);
+                    },
+                  ),
+                  // One element: "Markdown, switch, off". A row's 48 tall,
+                  // on one line or under the count, so the switch's tap
+                  // target, reaching past what it draws, is inside it
+                  // (PR #312 review): taps only reach a box's children
+                  // inside the box.
+                  MergeSemantics(
+                    child: InkWell(
+                      onTap: () => _m.notesMarkdown = !_m.notesMarkdown,
+                      borderRadius: BorderRadius.circular(8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: GroupedRow.oneLineMinHeight),
+                        child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                              child: Text(l10n.expenseNotesMarkdown, style: muted)),
+                          // The scaled switch keeps its full width around it.
+                          const SizedBox(width: 2),
+                          AppSwitch(
+                            value: _m.notesMarkdown,
+                            onChanged: (v) => _m.notesMarkdown = v,
+                          ),
+                        ],
+                      )),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _cell(Widget field) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: field,
+      );
+
+  /// A row's value at its end: the main content, in the primary color.
+  Widget _value(BuildContext context, String value) => Text(value, style: formValueStyle(context));
+
+  String _repeatLabel(RecurrenceRule rule) => switch (rule) {
+        RecurrenceRule.none => context.l10n.expenseRepeatNone,
+        RecurrenceRule.daily => context.l10n.expenseRepeatDaily,
+        RecurrenceRule.weekly => context.l10n.expenseRepeatWeekly,
+        RecurrenceRule.monthly => context.l10n.expenseRepeatMonthly,
+      };
+
+  /// Before a row opens a picker (#267): a text field that kept its focus
+  /// would get it back when the picker closes, and the form would scroll
+  /// back up to it.
+  void _dropFocus() => FocusManager.instance.primaryFocus?.unfocus();
+
+  /// "Repeat", whose value opens a menu of the choices.
+  Widget _repeatRow(BuildContext context) => MenuRow(
+        title: formLabel(context, context.l10n.expenseRepeatLabel),
+        value: _value(context, _repeatLabel(_m.recurrenceRule)),
+        onOpened: _dropFocus,
+        items: [
+          for (final rule in RecurrenceRule.values)
+            AppMenuItem(
+                label: _repeatLabel(rule),
+                checked: rule == _m.recurrenceRule,
+                onSelected: () => _m.recurrenceRule = rule),
+        ],
+      );
+
+  Widget _form(BuildContext context) {
+    final l10n = context.l10n;
+    final pageTheme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        // Adding or editing is a task finished or abandoned (#259): ✕
+        // closes, asking first if anything changed, and ✓ saves. It asks
+        // the form itself rather than waiting on PopScope, which learns
+        // of a change a frame later.
+        leading: CloseButton(
+            onPressed: () => _hasChanges ? _confirmLeave() : Navigator.of(context).maybePop()),
+        title: Text(_title(context)),
+        centerTitle: false,
+        actions: [
+          TopBarButtons(children: [
+            // Mark as paid's is a settlement by definition (#272).
+            if (widget.initialDraft == null) _kindButton(context),
+            _saving
+                ? SizedBox.square(
+                    dimension: TopBarButtons.slotSize(context),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.check),
+                    tooltip: l10n.expenseSaveButton,
+                    onPressed: _save,
+                  ),
+          ]),
+        ],
+      ),
+      body: AboveBottomBar(child: Theme(
+        // Fields sit on the cards, so they draw no box of their own.
+        data: pageTheme.copyWith(
+          inputDecorationTheme: InputDecorationTheme(
+            // A placeholder in the dimmed color, as the rows' labels.
+            hintStyle: TextStyle(color: SpliitColors.of(context).secondaryContent),
+            // A field's label too, as the rows', until it's focused or
+            // wrong: then Material's.
+            labelStyle: WidgetStateTextStyle.resolveWith((states) =>
+                states.contains(WidgetState.error) || states.contains(WidgetState.focused)
+                    ? const TextStyle()
+                    : TextStyle(color: SpliitColors.of(context).secondaryContent)),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+            filled: false,
+          ),
+        ),
+        child: GroupedScrollClip(
+          child: SingleChildScrollView(
+            controller: _scroll,
+            // Scrolling puts the keyboard away, as iOS's forms do.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Why the last save failed, where the list scrolls to.
+                  if (_saveError != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: ErrorMessage(_saveError!, diagnostics: _saveErrorDiagnostics),
+                    ),
+                  // The scanner reads expenses, not settlements.
+                  if (_offersScan && !_m.isSettlement) _scanSection(context),
+                  GroupedSection(children: [
+                    _cell(TextFormField(
+                      controller: _m.titleController,
+                      // A long title wraps rather than scrolling out of
+                      // sight (#263), still one line of text: Return
+                      // finishes, and a pasted line break is a space.
+                      maxLines: null,
+                      keyboardType: TextInputType.text,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\r\n]+'), replacementString: ' ')],
+                      decoration: InputDecoration(
+                          labelText: l10n.expenseTitleLabel, helperText: _scanHint(_scan.fill?.titleHint)),
+                      validator: (v) => (v == null || v.isEmpty) ? l10n.commonRequired : null,
+                    )),
+                    // A settlement has no category (#259): see
+                    // ExpenseFormModel.categoryToSave.
+                    if (!_m.isSettlement)
+                      GroupedRow(
+                        title: formLabel(context, l10n.expenseCategoryLabel),
+                        subtitle: switch (_scanHint(switch (_scan.fill?.categoryHint) {
+                          final id? => localizedCategoryLabel(
+                              context, id, _categories.where((c) => c.id == id).firstOrNull),
+                          null => null,
+                        })) {
+                          final hint? => Text(hint),
+                          null => null,
+                        },
+                        // The icon goes with the category it shows, as
+                        // Paid by's monogram with the payer.
+                        value: Row(mainAxisSize: MainAxisSize.min, children: [
+                          CategoryIconGlyph(category: _selectedCategory, size: 24),
+                          const SizedBox(width: 8),
+                          Flexible(
+                              child: _value(context, localizedCategoryLabel(context, _m.category, _knownCategory))),
+                        ]),
+                        onTap: _pickCategory,
+                      ),
+                    GroupedRow(
+                      title: formLabel(context, l10n.expenseDateLabel),
+                      subtitle: switch (_scanHint(_scan.fill?.dateHint)) {
+                        final hint? => Text(hint),
+                        null => null,
+                      },
+                      value: _value(context, formatDate(_m.date, locale: context.appLocale)),
+                      onTap: _pickDate,
+                    ),
+                    _repeatRow(context),
+                  ]),
+                  CurrencyCard(
+                    model: _m,
+                    rates: _rates,
+                    onPickPaidIn: _pickPaidIn,
+                    amountHint: _scanHint(_scan.fill?.amountHint),
+                    calculatedKey: _calculatedKey,
+                    showErrors: _hasAttemptedSave,
+                  ),
+                  SplitCard(
+                      model: _m,
+                      showErrors: _hasAttemptedSave,
+                      payer: _paidByRow(context),
+                      footerKey: _paidForFooterKey),
+                  ReceiptsCard(controller: _receipts, onAdd: _addReceipt, keepsUnsent: !widget.isEditing),
+                  // Last: receipts hardly change height, notes can be long
+                  // (#268). Past 12 lines they scroll inside the field.
+                  _notesSection(context),
+                ],
+              ),
+            ),
+          ),
+        )),
+      ),
+    );
+  }
+
+  Future<void> _pickDate() async {
+    _dropFocus();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _m.date,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      _m.setDate(picked);
+      // The new day's rate, into a field that isn't the user's.
+      unawaited(_rates.lookUp());
+    }
+  }
+
+  /// Opens the category picker (issue #19): grouped by
+  /// [Category.grouping] (matching how the server's own list is already
+  /// laid out) and filterable by a type-ahead search field, rather than
+  /// one long flat dropdown of 40+ categories.
+  Future<void> _pickCategory() async {
+    _dropFocus();
+    final picked = await showCategoryPicker(context, categories: _categories, selectedId: _m.category);
+    if (picked != null) {
+      _m.setCategory(picked.id);
+    }
+  }
+
+  /// "Paid in" (#252), the shared currency picker (issue #23) without a
+  /// Custom option: a conversion needs an ISO code on both sides, so the
+  /// row only shows in a group that has one.
+  Future<void> _pickPaidIn() async {
+    _dropFocus();
+    final picked = await pickCurrency(
+      context,
+      currencies: supportedCurrencies,
+      selectedCode: _m.paidIn ?? '',
+    );
+    if (picked == null || !_m.choosePaidIn(picked.code)) return;
+    _rates.pairChanged();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _hasAttemptedSave = true;
+      _saveError = null;
+      _saveErrorDiagnostics = null;
+    });
+    // Too long notes say so in the field, not the preview.
+    if (_notesPreview && _m.notes.length > expenseNotesMax) {
+      setState(() => _notesPreview = false);
+    }
+    // Each refusal below says why on screen; the haptic says to look.
+    final invalid = _formKey.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) return _refuse(invalid: invalid);
+    // The split first: a settlement's amount is its To amounts' sum.
+    if (_m.splitProblem() != null) return _refuse();
+    final amounts = _m.amountsToSave();
+    if (amounts == null) return _refuse();
+    final paidFor = _m.paidFor();
+    if (paidFor == null) return _refuse();
+
+    // A new expense keeps photos that didn't upload, and syncs with them
+    // later (#124); only ones still on their way hold it back. An edit is
+    // online-only: each new photo is uploaded or removed first, as before.
+    if (_receipts.busy) return _refuse(blocker: context.l10n.expenseReceiptsWaitBeforeSave);
+    if (widget.isEditing && _receipts.hasFailed) return _refuse(blocker: context.l10n.expenseReceiptsUploadOrRemove);
+
+    setState(() => _saving = true);
+
+    // One catch for both paths (#119 review): an edit's request, and a new
+    // expense's local database writes, which used to fail with the form
+    // stuck on "Saving…".
+    try {
+      if (widget.isEditing) {
+        await _saveEdit(amounts, paidFor);
+      } else {
+        await _saveNew(amounts, paidFor);
+      }
+    } catch (e, st) {
+      final error = ErrorReporter.instance.report(e, st,
+          operation: widget.isEditing
+              ? 'Saving expense ${widget.existingExpense!.id}'
+              : 'Adding an expense to ${widget.group.id}');
+      if (!mounted) return;
+      final message = errorMessageFor(context, error, unexpected: context.l10n.expenseEditSaveFailed);
+      setState(() {
+        _saving = false;
+        _saveError = message;
+        _saveErrorDiagnostics = error.diagnostics;
+      });
+      _scrollToTop();
+      _announce(message);
+    }
+  }
+
+  /// Says no, and scrolls to the first thing that's wrong (#259): one of
+  /// the [invalid] fields, the split, or a calculated amount, whichever is
+  /// highest. A screen reader, which can't feel the haptic or see the
+  /// scroll, hears what it is (#263): the [Form] says a field's error
+  /// itself, so this says the split's or an amount's when no field has one.
+  ///
+  /// A [blocker] is a reason outside the form's fields, such as a receipt
+  /// still uploading (#295 review): it goes above the cards, which scroll
+  /// to the top, and is announced as it is.
+  void _refuse({Set<FormFieldState<Object?>> invalid = const {}, String? blocker}) {
+    unawaited(Haptics.refused());
+    if (blocker != null) {
+      setState(() => _saveError = blocker);
+      _scrollToTop();
+      _announce(blocker);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final l10n = context.l10n;
+      final problems = [
+        for (final field in invalid) (field.context, field.errorText),
+        if ((_m.splitProblem() != null || (_m.isSettlement && _m.convertedAmountInvalid),
+            _paidForFooterKey.currentContext) case (true, final footer?))
+          (footer, SplitCard.problem(context, _m)),
+        if ((_m.convertedAmountInvalid, _calculatedKey.currentContext) case (true, final amount?))
+          (amount, l10n.expenseConvertedAmountInvalid),
+      ];
+      (BuildContext, String?)? first;
+      double? top;
+      for (final problem in problems) {
+        final box = problem.$1.findRenderObject();
+        if (box is! RenderBox || !box.attached) continue;
+        final y = box.localToGlobal(Offset.zero).dy;
+        if (top == null || y < top) (first, top) = (problem, y);
+      }
+      if (first case (final where, final message)) {
+        unawaited(Scrollable.ensureVisible(where,
+            alignment: 0.2, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
+        if (message != null && invalid.isEmpty) _announce(message);
+      }
+    });
+  }
+
+  /// Says [message] to a screen reader, as soon as it's said: why a save
+  /// was refused or failed, which a reader can't see appear (#263).
+  void _announce(String message) {
+    if (!MediaQuery.supportsAnnounceOf(context)) return;
+    unawaited(SemanticsService.sendAnnouncement(View.of(context), message, Directionality.of(context),
+        assertiveness: Assertiveness.assertive));
+  }
+
+  /// Up to why the save failed, at the top of the list (#259).
+  void _scrollToTop() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) {
+          unawaited(_scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
+        }
+      });
+
+  /// Only takes effect after a save actually *succeeds* -- a split
+  /// remembered from a save the server rejected would wrongly go on
+  /// prefilling future expenses (issue #29 section 7). No-op for a
+  /// settlement (the toggle is hidden for one, but this is the real
+  /// gate) or when the toggle wasn't checked.
+  ///
+  /// Never fails the save (#119 review): the expense is already saved, so
+  /// a failure here is reported in a snack bar and the form still closes.
+  /// Retrying the save would add the expense a second time, and the split
+  /// can be saved as the default with the next expense.
+  Future<void> _rememberDefaultSplitIfRequested(List<ExpenseShare> paidFor) async {
+    if (!_m.saveDefaultSplit || _m.isSettlement) return;
+    try {
+      await widget.db.setDefaultSplit(
+        widget.group.id,
+        DefaultSplit.remembering(
+          splitMode: _m.splitMode,
+          paidFor: paidFor,
+          allParticipants: widget.group.participants,
+        ),
+      );
+    } catch (e, st) {
+      final error = ErrorReporter.instance
+          .report(e, st, operation: 'Saving the default split for ${widget.group.id}');
+      if (!mounted) return;
+      showErrorSnackBar(context, context.l10n.expenseDefaultSplitSaveFailed,
+          diagnostics: error.diagnostics);
+    }
+  }
+
+  Future<void> _saveNew(ExpenseAmounts amounts, List<ExpenseShare> paidFor) async {
+    final expense = Expense(
+      id: const Uuid().v4(),
+      groupId: widget.group.id,
+      title: _m.titleController.text.trim(),
+      amountCents: amounts.amount,
+      paidBy: _m.paidBy!,
+      paidFor: paidFor,
+      splitMode: _m.splitModeToSave,
+      category: _m.categoryToSave,
+      notes: _m.notes,
+      date: _m.date,
+      isSettlement: _m.isSettlement,
+      recurrenceRule: _m.recurrenceRule,
+      originalAmountCents: amounts.originalAmount,
+      originalCurrency: amounts.originalCurrency,
+      conversionRate: amounts.conversionRate,
+      pending: true,
+      createdAt: DateTime.now(),
+      documents: _receipts.documents,
+      documentCount: _receipts.documents.length,
+    );
+
+    // Written locally first -- this succeeds regardless of connectivity,
+    // which is the entire point. The outbox (triggered by the caller
+    // after this returns) is what attempts the real sync. Who added it is
+    // captured now, not when the outbox replays it (issue #92).
+    // With its photos that didn't upload, in one step (#124): a retried
+    // Save must never add the expense twice.
+    final addedBy = await _activityParticipant();
+    await _receipts.keepUnsent(
+        expenseId: expense.id,
+        save: (attachments) => widget.db.insertPending(expense,
+            addedByParticipantId: addedBy, attachments: attachments));
+    await _rememberDefaultSplitIfRequested(paidFor);
+
+    unawaited(Haptics.saved());
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  /// Who to credit in Spliit's activity log for this save (issue #92):
+  /// the group's active user as stored right now, via
+  /// [activityParticipantId]. Read from the db rather than taken as a
+  /// constructor param, so every way into this screen (the expense list,
+  /// Balances' "mark as paid", Activity) attributes the same way.
+  Future<String?> _activityParticipant() async {
+    final row = await widget.db.groupRow(widget.group.id);
+    return activityParticipantId(
+      storedActiveParticipantId: row?.activeParticipantId,
+      participants: widget.group.participants,
+    );
+  }
+
+  /// Online-only (see class doc comment): no local pending row, no
+  /// outbox -- just a direct [SpliitClient.updateExpense] call. On
+  /// failure (most commonly: offline), stays on the form with an error
+  /// rather than silently queuing anything, since there's no queueing
+  /// path for edits.
+  Future<void> _saveEdit(ExpenseAmounts amounts, List<ExpenseShare> paidFor) async {
+    // Cloud lets an expense have several payers and line items. This form
+    // edits one payer and no items; saving would collapse those fields, so
+    // send the edit to the web instead of corrupting the expense.
+    if (widget.existingExpense!.isMultiPayer ||
+        widget.existingExpense!.items.isNotEmpty) {
+      if (mounted) {
+        showErrorSnackBar(context, context.l10n.expenseEditComplexOnWeb);
+      }
+      return;
+    }
+    await widget.client.updateExpense(
+      groupId: widget.group.id,
+      expenseId: widget.existingExpense!.id,
+      title: _m.titleController.text.trim(),
+      amountCents: amounts.amount,
+      paidBy: _m.paidBy!,
+      paidFor: paidFor,
+      splitMode: _m.splitModeToSave,
+      category: _m.categoryToSave,
+      notes: _m.notes,
+      date: _m.date,
+      isSettlement: _m.isSettlement,
+      recurrenceRule: _m.recurrenceRule,
+      saveDefaultSplittingOptions: _m.saveDefaultSplit,
+      // The ones still attached, plus uploads: Spliit deletes any not
+      // sent back (#128), and keeps the ids it's sent.
+      documents: _receipts.documents,
+      originalAmountCents: amounts.originalAmount,
+      originalCurrency: amounts.originalCurrency,
+      conversionRate: amounts.conversionRate,
+      participantId: await _activityParticipant(),
+      expectedVersion: widget.existingExpense!.version,
+    );
+    // A refresh fetched before this edit mustn't write the old copy
+    // back over it (issue #90).
+    widget.db.markExpensesChanged(widget.group.id);
+    // Update keeps the ids sent, so these are the server's now (#123).
+    // Best effort: the edit is saved either way.
+    try {
+      await widget.db.cacheExpenseDocuments(
+          widget.group.id, widget.existingExpense!.id, _receipts.documents);
+    } catch (e, st) {
+      ErrorReporter.instance.report(e, st, operation: 'Storing an edited expense\'s receipts');
+    }
+    await _rememberDefaultSplitIfRequested(paidFor);
+    unawaited(Haptics.saved());
+    if (mounted) Navigator.of(context).pop(true);
+  }
+}

@@ -1,0 +1,337 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../api/spliit_client.dart';
+import '../db/app_database.dart';
+import '../l10n/context_l10n.dart';
+import '../models/balance.dart';
+import '../models/expense.dart';
+import '../models/group.dart';
+import '../services/balance_calculator.dart';
+import '../sync/outbox.dart';
+import '../utils/money.dart';
+import '../widgets/money.dart';
+import '../widgets/group_monogram.dart';
+import '../widgets/grouped_section.dart';
+import '../widgets/label_and_value.dart';
+import 'expense_screen.dart';
+import '../services/error_reporting.dart';
+import '../widgets/empty_state.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../theme.dart';
+import '../widgets/bottom_inset.dart';
+import '../widgets/participant_colors.dart';
+import '../widgets/text_scaled.dart';
+
+/// Who-owes-whom for the group, plus one-tap "mark as paid" for the
+/// suggested settlements -- mirrors the web app's Balances tab.
+///
+/// Balances are computed entirely from the local cache, via a live
+/// [AppDatabase.watchExpensesForGroup] stream (issue #47) rather than an
+/// imperative reload, so this works offline, already reflects any
+/// not-yet-synced pending expenses, and picks up any change -- a
+/// settlement recorded here, an expense added/edited/synced elsewhere in
+/// the app -- the moment it's written, with no reload wiring of its own
+/// needed. "Mark as paid" opens ExpenseScreen pre-filled with the
+/// suggested settlement (amount, "this is a settlement" checked,
+/// payer/payee, a "<payer> paid <payee>" title) rather than recording it
+/// directly (issue #22) -- matching the web/iOS apps' own settle-up
+/// flow, and letting the amount be edited down for a partial payment.
+/// From there it's a completely normal add: a pending expense written
+/// locally first, queued for the outbox if there's no connectivity right
+/// now.
+class BalancesScreen extends StatefulWidget {
+  final SpliitClient client;
+  final AppDatabase db;
+  final Outbox outbox;
+  final Group group;
+
+  /// When true, renders just the balances content with no [Scaffold]/
+  /// [AppBar] of its own -- for embedding as a tab body inside
+  /// GroupScreen's own bottom-navigation Scaffold (issue #38), which
+  /// supplies the persistent title bar all four tabs now share. `false`
+  /// (the default) keeps this screen's original standalone
+  /// pushed-full-screen behavior, still used by anything that hasn't
+  /// been converted to a tab.
+  final bool embedded;
+
+  /// Who "you" are in this group, or null for Nobody / not picked yet --
+  /// resolved by GroupScreen (see resolveActiveParticipant).
+  final String? activeUserId;
+
+  /// Opens the "Who are you?" picker from the You section (issue #99).
+  /// Null hides the row's tap target (e.g. a standalone screen).
+  final VoidCallback? onPickActiveUser;
+
+  const BalancesScreen({
+    super.key,
+    required this.client,
+    required this.db,
+    required this.outbox,
+    required this.group,
+    this.embedded = false,
+    this.activeUserId,
+    this.onPickActiveUser,
+  });
+
+  @override
+  State<BalancesScreen> createState() => _BalancesScreenState();
+}
+
+class _BalancesScreenState extends State<BalancesScreen> {
+  late final Stream<List<ExpenseRow>> _expensesStream;
+  String? _settlingKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _expensesStream = widget.db.watchExpensesForGroup(widget.group.id);
+  }
+
+  String _name(String participantId) {
+    for (final p in widget.group.participants) {
+      if (p.id == participantId) return p.name;
+    }
+    return participantId;
+  }
+
+  /// Opens ExpenseScreen pre-filled with [s], rather than recording it
+  /// directly, so the user can see/edit the amount (a partial payment)
+  /// and everything else before it's actually saved -- see the class doc
+  /// comment and issue #22.
+  Future<void> _openSettleUp(Settlement s) async {
+    final key = '${s.fromId}->${s.toId}';
+    final draft = Expense(
+      // Discarded -- ExpenseScreen's _saveNew always mints its own fresh
+      // id on save, this is never read.
+      id: '',
+      groupId: widget.group.id,
+      title: '${_name(s.fromId)} paid ${_name(s.toId)}',
+      amountCents: s.amountCents,
+      paidBy: s.fromId,
+      paidFor: [ExpenseShare(participantId: s.toId, shares: 1)],
+      splitMode: SplitMode.evenly,
+      date: DateTime.now(),
+      isSettlement: true,
+    );
+
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ExpenseScreen(
+          client: widget.client,
+          db: widget.db,
+          outbox: widget.outbox,
+          group: widget.group,
+          initialDraft: draft,
+          activeUserId: widget.activeUserId,
+        ),
+      ),
+    );
+    if (saved != true) return;
+
+    setState(() => _settlingKey = key);
+    // Best-effort immediate sync, same pattern as adding a regular
+    // expense -- if we're offline this just leaves it pending, which is
+    // fine since the live balance recompute (via [_expensesStream])
+    // still counts pending rows. But note what Outbox.flush() does on
+    // *success*: it deletes the local pending row outright and relies on
+    // the caller doing a live re-fetch afterward to bring it back as a
+    // normal synced row (see outbox.dart) -- without the follow-up
+    // fetchExpenses/replaceServerExpenses below, a successfully-synced
+    // settlement would briefly vanish from the balance math (the pending
+    // row gone, the synced one not yet cached) instead of just clearing
+    // the debt it was meant to clear.
+    final synced = await widget.outbox.flush();
+    if (synced > 0) {
+      try {
+        final generation = widget.db.expensesGeneration(widget.group.id);
+        final fresh = await widget.client.fetchExpenses(widget.group.id);
+        await widget.db.replaceServerExpenses(widget.group.id, fresh,
+            fetchedAtGeneration: generation);
+      } catch (e, st) {
+        // Synced but the follow-up refresh failed -- rare (would need
+        // the server to accept the write yet the very next request to
+        // fail), and nothing to do about it here; the next visit to
+        // GroupScreen's own refresh will reconcile it. Logged if it's
+        // anything but a connection problem (#119 review).
+        ErrorReporter.instance
+            .report(e, st, operation: 'Refreshing after settling up in ${widget.group.id}');
+      }
+    }
+    if (!mounted) return;
+    setState(() => _settlingKey = null);
+    // No explicit reload and no onExpenseChanged callback to
+    // GroupScreen needed (issue #47) -- every write above went through
+    // AppDatabase, so [_expensesStream] here (and GroupScreen's own
+    // watchExpensesForGroup subscription) already reflect it.
+  }
+
+  /// The active user's own position, above everyone's (issue #99), like
+  /// spliit-ios's BalancesView "You" section: which way the money goes
+  /// and how much, then a row saying who "you" are that opens the
+  /// picker. Unpicked, only that row shows, with a line on why to pick.
+  Widget _youSection(BuildContext context, List<Balance> balances) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final you = widget.group.participants
+        .where((p) => p.id == widget.activeUserId)
+        .firstOrNull;
+    final net = balances
+            .where((b) => b.participantId == you?.id)
+            .firstOrNull
+            ?.netCents ??
+        0;
+    return GroupedSection(
+      caption: l10n.balancesYouSection,
+      footer: you == null ? l10n.balancesYouHint : null,
+      children: [
+        if (you != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  net > 0
+                      ? l10n.balancesYouAreOwed
+                      : net < 0
+                          ? l10n.balancesYouOwe
+                          : l10n.balancesYouSettled,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 4),
+                // Unsigned: the line above already says which way.
+                Money(
+                  formatMoney(net.abs(), widget.group.currency,
+                      decimalDigits: widget.group.decimalDigits,
+                      locale: context.appLocale),
+                  size: MoneySize.hero,
+                  sign: MoneySign.ofBalance(net),
+                ),
+              ],
+            ),
+          ),
+        // One row in the title, not a trailing widget: a trailing
+        // Text is unconstrained, and a long name at large text took
+        // the whole tile (#101 review). Here the name gets what's
+        // left beside the label and wraps.
+        ListTile(
+          title: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.balancesYouLabel,
+                  style: TextStyle(color: theme.colorScheme.primary)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  you?.name ?? l10n.balancesYouNobody,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          onTap: widget.onPickActiveUser,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ExpenseRow>>(
+      stream: _expensesStream,
+      builder: (context, snapshot) {
+        final rows = snapshot.data;
+        final Widget body;
+        if (rows == null) {
+          body = const Center(child: CircularProgressIndicator());
+        } else {
+          final expenses = rows.map(widget.db.rowToExpense).toList();
+          final balances = computeBalances(widget.group.participants, expenses);
+          final settlements = suggestSettlements(balances);
+          body = RefreshIndicator(
+            // The list is already always current (it's fed by a live db
+            // stream) -- there's nothing to actually re-fetch here, but
+            // the pull-to-refresh gesture is kept as a harmless no-op
+            // rather than removing an affordance users expect on a
+            // scrollable list (issue #47).
+            onRefresh: () async {},
+            child: GroupedScrollClip(
+        child: ListView(
+              padding: withBottomInset(context, const EdgeInsets.only(top: 16)),
+              children: [
+                _youSection(context, balances),
+                if (balances.isNotEmpty)
+                  LayoutBuilder(builder: (context, constraints) {
+                    String amount(int cents) => formatMoney(cents, widget.group.currency,
+                        decimalDigits: widget.group.decimalDigits, locale: context.appLocale);
+                    // Every balance under its name, at the end, or none, as
+                    // Paid for's (#296): a trailing squeezed the name.
+                    final under = valuesGoUnder(
+                        row: constraints.maxWidth - 2 * GroupedSection.inset - 2 * GroupedSection.inset,
+                        label: context.textScaled(24) + 16,
+                        widest: 16 +
+                            [for (final b in balances) measuredTextWidth(context, amount(b.netCents), Money.styleOf(context))]
+                                .fold(0.0, math.max));
+                    final colors = participantColors(widget.group.participants, widget.activeUserId);
+                    return GroupedSection(
+                      caption: context.l10n.balancesTitle,
+                      footer: context.l10n.balancesExplainer,
+                      // Past the monogram, under the name, as Paid for's (#306).
+                      dividerIndent: 56,
+                      children: [
+                        for (final b in balances)
+                          GroupedRow(
+                            title: MonogramLabel(
+                                monogram: Monogram(
+                                    name: _name(b.participantId),
+                                    color: colors[b.participantId] ?? monogramPalette.first,
+                                    radius: 12),
+                                name: Text(b.participantId == widget.activeUserId
+                                    ? context.l10n.expenseDetailsYou(_name(b.participantId))
+                                    : _name(b.participantId))),
+                            value: Money(amount(b.netCents), sign: MoneySign.ofBalance(b.netCents)),
+                            valueUnder: under,
+                          ),
+                      ],
+                    );
+                  }),
+                if (settlements.isNotEmpty)
+                  GroupedSection(
+                    caption: context.l10n.balancesSuggestedSettlements,
+                    children: [
+                      for (final s in settlements)
+                        GroupedRow(
+                          title: Text(context.l10n.balancesOwes(_name(s.fromId), _name(s.toId))),
+                          // Under it, at the end, when they don't fit (#296).
+                          value: _settlingKey == '${s.fromId}->${s.toId}'
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : TextButton(
+                                  onPressed: () => _openSettleUp(s),
+                                  child: Text(context.l10n.balancesMarkAsPaid(formatMoney(
+                                      s.amountCents, widget.group.currency,
+                                      decimalDigits: widget.group.decimalDigits,
+                                      locale: context.appLocale))),
+                                ),
+                        ),
+                    ],
+                  ),
+                if (balances.isEmpty)
+                  EmptyState(icon: LucideIcons.scale, title: context.l10n.commonNoExpensesYet),
+              ],
+            )),
+          );
+        }
+        if (widget.embedded) return body;
+        return Scaffold(appBar: AppBar(title: Text(context.l10n.balancesTitle)), body: body);
+      },
+    );
+  }
+}

@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # app_database.g.dart (and any other *.g.dart) is gitignored -- it's
+      # generated, not committed -- so nothing here compiles without this
+      # step. This alone would have caught the whereSamePrimaryKey mistake
+      # and both Value() wrapping mistakes from 2026-09-16, all of which
+      # were plain compile errors that never needed a device to find.
+      - name: Generate drift code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Coverage summary
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y lcov
+          lcov --summary coverage/lcov.info
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/lcov.info
+
+  # Whether a pull request touches what android-flavors checks. The two
+  # minutes or so it adds past analyze-and-test only pay off then (PRs
+  # #220-#229).
+  # A skipped job counts as passed, so this works even if it's made a
+  # required check.
+  android-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.diff.outputs.android }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # --no-renames lists a moved file's old path too, so moving something
+      # out of android/ still counts (#230 review).
+      - id: diff
+        run: |
+          if git diff --name-only --no-renames "origin/$BASE_REF...HEAD" |
+              grep -qE '^(android/|pubspec\.(yaml|lock)$|scripts/check_android_flavors$|\.github/workflows/ci\.yml$)'; then
+            echo android=true >> "$GITHUB_OUTPUT"
+          else
+            echo android=false >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          BASE_REF: ${{ github.base_ref }}
+
+  # The dev and prod apps' Android signing and the dev-bundle guard (#219,
+  # #220 review): Gradle behavior flutter test can't see. On every push to
+  # main, and on a pull request that touches Android's build (above).
+  android-flavors:
+    needs: android-changes
+    if: >-
+      always() && (github.event_name == 'push' ||
+      needs.android-changes.outputs.android == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # bundleDebug compiles the Dart code before the guard stops it.
+      - name: Generate drift code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Check the dev and prod Android builds
+        run: scripts/check_android_flavors

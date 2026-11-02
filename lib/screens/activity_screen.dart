@@ -1,0 +1,491 @@
+import 'package:flutter/material.dart';
+
+import '../api/spliit_client.dart';
+import '../db/app_database.dart';
+import '../l10n/context_l10n.dart';
+import '../models/activity.dart';
+import '../models/category.dart';
+import '../models/group.dart';
+import '../services/activity_date_group.dart';
+import '../services/expense_date_group.dart' show firstWeekdayFor;
+import '../sync/outbox.dart';
+import '../utils/date_format.dart';
+import '../theme.dart';
+import '../widgets/grouped_section.dart';
+import 'expense_details_sheet.dart';
+import '../widgets/error_message.dart';
+import '../services/error_reporting.dart';
+import '../widgets/empty_state.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../widgets/bottom_inset.dart';
+import '../widgets/text_scaled.dart';
+
+/// The group's server-side activity log (issue #26) -- who changed what
+/// and when. Read-only and **online-only**: unlike expenses, activity
+/// entries aren't cached locally or queued offline, since there's
+/// nothing to add from this device -- it's purely a view of history the
+/// server already recorded. One of GroupScreen's four tabs (issue #38).
+///
+/// Paginates via [SpliitClient.fetchActivities] the way the web app's
+/// infinite-scroll list does (newest first, 20 per page): the next page
+/// loads as the list nears its end, with no button (issue #91). Split
+/// into the web's and spliit-ios's nine date sections, in local time.
+class ActivityScreen extends StatefulWidget {
+  final SpliitClient client;
+  final AppDatabase db;
+  final Outbox outbox;
+  final Group group;
+
+  /// See BalancesScreen's own doc comment on its identical field --
+  /// same reasoning (issue #38): true embeds just the content, with no
+  /// Scaffold/AppBar of its own, for use as one of GroupScreen's tab
+  /// bodies.
+  final bool embedded;
+
+  /// For the expense details sheet an entry opens (issue #90): category
+  /// names and who "you" are, both from GroupScreen, which already has
+  /// them.
+  final List<Category> categories;
+  final String? activeUserId;
+
+  /// Called after an expense opened from here was edited, so GroupScreen
+  /// can sync and refresh its cached expenses.
+  final VoidCallback? onExpensesChanged;
+
+  /// The current local time, and the conversion of a server moment to
+  /// the phone's local time. Overridable so tests can pin a time zone: a
+  /// test machine running in UTC wouldn't prove the conversion.
+  @visibleForTesting
+  final DateTime Function() now;
+  @visibleForTesting
+  final DateTime Function(DateTime) toLocal;
+
+  const ActivityScreen({
+    super.key,
+    required this.client,
+    required this.db,
+    required this.outbox,
+    required this.group,
+    this.embedded = false,
+    this.categories = const [],
+    this.activeUserId,
+    this.onExpensesChanged,
+    this.now = DateTime.now,
+    this.toLocal = _systemLocalTime,
+  });
+
+  @override
+  State<ActivityScreen> createState() => _ActivityScreenState();
+}
+
+DateTime _systemLocalTime(DateTime t) => t.toLocal();
+
+class _ActivityScreenState extends State<ActivityScreen> {
+  final List<Activity> _activities = [];
+  final Set<String> _seenIds = {};
+  final _scroll = ScrollController();
+  int _cursor = 0;
+  bool _hasMore = true;
+  bool _loading = false;
+  String? _error;
+  String? _errorDiagnostics;
+
+  /// Bumped by [_reload], so a page still loading from before it can't
+  /// land in the fresh list.
+  int _generation = 0;
+
+  /// How close to the end of the list, in pixels, the next page starts
+  /// loading -- early enough that it's usually there before it's needed.
+  static const _prefetchExtent = 400.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_maybeLoadMore);
+    _loadMore();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Fetches the next page. One request at a time; the cursor only moves
+  /// on success, so Retry asks for the same page again.
+  Future<void> _loadMore() async {
+    if (_loading || !_hasMore) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final generation = _generation;
+    try {
+      final page = await widget.client.fetchActivities(groupId: widget.group.id, cursor: _cursor);
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        // Pages can overlap when the log changes between requests. The
+        // cursor still comes from the server, not from this count.
+        _activities.addAll(page.activities.where((a) => _seenIds.add(a.id)));
+        // A page that doesn't move the cursor would request itself forever.
+        _hasMore = page.hasMore && page.nextCursor > _cursor;
+        _cursor = page.nextCursor;
+      });
+    } catch (e, st) {
+      final error = ErrorReporter.instance
+          .report(e, st, operation: 'Loading activity for ${widget.group.id}');
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _error = errorMessageFor(context, error, unexpected: context.l10n.activityLoadFailed);
+        _errorDiagnostics = error.diagnostics;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+        // A page too short to fill the screen never produces a scroll
+        // event, so check again once it's laid out.
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeLoadMore());
+      }
+    }
+  }
+
+  /// Loads the next page once the list nears its end or can't scroll
+  /// yet. Never after a failure: that waits for the Retry button.
+  void _maybeLoadMore() {
+    if (!mounted || _loading || !_hasMore || _error != null) return;
+    if (!_scroll.hasClients) {
+      // No list on screen yet because the pages so far were empty.
+      if (_activities.isEmpty) _loadMore();
+      return;
+    }
+    if (_scroll.position.extentAfter < _prefetchExtent) _loadMore();
+  }
+
+  /// Mirrors the web app's fallback in activity-item.tsx's useSummary:
+  /// a participant who's since been removed from the group (or was
+  /// never resolvable) shows as "Someone" rather than a blank or an id.
+  String _participantName(String? id) {
+    if (id == null) return context.l10n.activitySomeone;
+    for (final p in widget.group.participants) {
+      if (p.id == id) return p.name;
+    }
+    return context.l10n.activitySomeone;
+  }
+
+  /// Who did what, in the active voice, as spliit-ios's ActivityLogView
+  /// says it (#189): "Ken added "Dinner"." rather than the web app's
+  /// passive "Expense "Dinner" created by Ken.", which reads unnaturally
+  /// in many languages.
+  String _summary(Activity a) {
+    final name = a.actorName ?? _participantName(a.participantId);
+    switch (a.activityType) {
+      case ActivityType.updateGroup:
+      case ActivityType.archiveGroup:
+        return context.l10n.activityGroupSettingsModified(name);
+      case ActivityType.createExpense:
+      case ActivityType.payment:
+        return context.l10n.activityExpenseCreated(a.data ?? '', name);
+      case ActivityType.updateExpense:
+        return context.l10n.activityExpenseUpdated(a.data ?? '', name);
+      case ActivityType.deleteExpense:
+        return context.l10n.activityExpenseDeleted(a.data ?? '', name);
+      case ActivityType.inviteMember:
+      case ActivityType.comment:
+        return a.data ?? context.l10n.activityGroupSettingsModified(name);
+    }
+  }
+
+  /// What kind of change, beside its sentence (#189): spliit-ios's
+  /// plus, pencil, trash and gear, in Lucide's drawing of each.
+  IconData _icon(Activity a) => switch (a.activityType) {
+        ActivityType.createExpense || ActivityType.payment => LucideIcons.plus,
+        ActivityType.updateExpense => LucideIcons.pencil,
+        ActivityType.deleteExpense => LucideIcons.trash2,
+        ActivityType.updateGroup || ActivityType.archiveGroup => LucideIcons.settings,
+        ActivityType.inviteMember => LucideIcons.userPlus,
+        ActivityType.comment => LucideIcons.messageCircle,
+      };
+
+  String _sectionTitle(ActivityDateGroup group) {
+    final l10n = context.l10n;
+    return switch (group) {
+      ActivityDateGroup.today => l10n.activityToday,
+      ActivityDateGroup.yesterday => l10n.activityYesterday,
+      ActivityDateGroup.earlierThisWeek => l10n.dateSectionEarlierThisWeek,
+      ActivityDateGroup.lastWeek => l10n.dateSectionLastWeek,
+      ActivityDateGroup.earlierThisMonth => l10n.dateSectionEarlierThisMonth,
+      ActivityDateGroup.lastMonth => l10n.dateSectionLastMonth,
+      ActivityDateGroup.earlierThisYear => l10n.dateSectionEarlierThisYear,
+      ActivityDateGroup.lastYear => l10n.dateSectionLastYear,
+      ActivityDateGroup.older => l10n.dateSectionOlder,
+    };
+  }
+
+  /// Opens the activity's expense in the details sheet (issue #90). The
+  /// cache may not have it yet, so the sheet fetches it from the server
+  /// when it doesn't. A no-op if the expense has since been deleted
+  /// ([Activity.expenseExists] false) or is missing an id.
+  Future<void> _openExpense(Activity a) async {
+    if (!a.expenseExists || a.expenseId == null) return;
+    final changed = await showExpenseDetails(
+      context,
+      expenseId: a.expenseId!,
+      group: widget.group,
+      db: widget.db,
+      client: widget.client,
+      outbox: widget.outbox,
+      categories: widget.categories,
+      activeUserId: widget.activeUserId,
+      fetchIfMissing: true,
+    );
+    if (!changed || !mounted) return;
+    widget.onExpensesChanged?.call();
+    // The change is now in the log itself.
+    _reload();
+  }
+
+  /// Starts the log over from its newest page.
+  void _reload() {
+    setState(() {
+      _generation++;
+      _activities.clear();
+      _seenIds.clear();
+      _cursor = 0;
+      _hasMore = true;
+      _error = null;
+    });
+    _loadMore();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = _body();
+    if (widget.embedded) return body;
+    return Scaffold(
+        appBar: AppBar(title: Text(context.l10n.activityTitle)),
+        body: body);
+  }
+
+  Widget _body() {
+    if (_activities.isEmpty) {
+      if (_error != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ErrorMessage(_error!, diagnostics: _errorDiagnostics, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                TextButton(onPressed: _loadMore, child: Text(context.l10n.commonRetry)),
+              ],
+            ),
+          ),
+        );
+      }
+      if (_loading || _hasMore) return const Center(child: CircularProgressIndicator());
+      return EmptyState(icon: LucideIcons.history, title: context.l10n.activityEmpty);
+    }
+
+    // The whole loaded log is grouped on every build, so a section that
+    // continues onto the next page keeps a single heading.
+    final sections = groupActivitiesByDate(
+      _activities,
+      now: widget.now(),
+      firstWeekday: firstWeekdayFor(View.of(context).platformDispatcher.locale),
+      toLocal: widget.toLocal,
+    );
+    // Each row is a section's caption or an entry, with where it sits in
+    // its section's card (#185).
+    final rows = <Object>[
+      for (final (group, activities) in sections) ...[
+        group,
+        for (var i = 0; i < activities.length; i++)
+          (activities[i], group.needsDate, i == 0, i == activities.length - 1),
+      ],
+    ];
+
+    return GroupedScrollClip(
+        child: ListView.builder(
+      controller: _scroll,
+      padding: withBottomInset(context, const EdgeInsets.only(top: 16)),
+      itemCount: rows.length + 1, // +1 for the footer (loading / error)
+      itemBuilder: (context, i) {
+        if (i == rows.length) return _footer();
+        final row = rows[i];
+        if (row is ActivityDateGroup) {
+          return GroupedCaption(_sectionTitle(row), margin: GroupedCaption.listMargin);
+        }
+        final (a, needsDate, first, last) = row as (Activity, bool, bool, bool);
+        final local = widget.toLocal(a.time);
+        final locale = context.regionalDateLocale;
+        final use24 = MediaQuery.alwaysUse24HourFormatOf(context);
+        // Today and Yesterday name the day; within ten months the date
+        // needs no year (#233).
+        final when = needsDate
+            ? formatDateTime(local,
+                locale: locale,
+                use24HourFormat: use24,
+                withYear: !isWithinTenMonths(local, now: widget.now()))
+            : formatTimeOfDay(local, locale: locale, use24HourFormat: use24);
+        return GroupedItem(
+          first: first,
+          last: last,
+          // Past the icon, under the sentence.
+          dividerIndent: GroupedSection.inset + _ActivityIcon.widthOf(context) + _ActivityIcon.gap,
+          child: GroupedRow(
+            // The icon in the title's own row, not ListTile.leading: there
+            // it's aligned to the tile, not to the sentence, and sat high
+            // beside rows with a time under them.
+            title: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ActivityIcon(_icon(a), opens: a.expenseExists),
+                const SizedBox(width: _ActivityIcon.gap),
+                Expanded(child: _SentenceWithTime(sentence: _summary(a), time: when)),
+              ],
+            ),
+            // No chevron: the expense opens in a sheet, not a screen.
+            onTap: a.expenseExists ? () => _openExpense(a) : null,
+          ),
+        );
+      },
+    ));
+  }
+
+  Widget _footer() {
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ErrorMessage(_error!, diagnostics: _errorDiagnostics, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            TextButton(onPressed: _loadMore, child: Text(context.l10n.commonRetry)),
+          ],
+        ),
+      );
+    }
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return const SizedBox(height: 16);
+  }
+}
+
+/// An activity's kind, muted and small: a marker beside the sentence
+/// rather than a picture of it (#189), in a fixed column so the sentences
+/// line up. In a box one line of the sentence tall, so it centers on the
+/// first line however the sentence wraps, at any text size.
+class _ActivityIcon extends StatelessWidget {
+  const _ActivityIcon(this.icon, {required this.opens});
+
+  final IconData icon;
+
+  /// Whether the row opens its expense: then the icon sits on a circle in
+  /// the add button's tonal emerald, a shape as well as a color.
+  final bool opens;
+
+  /// The circle's width, growing with the text (#294), and a
+  /// small gap: it's a marker, so the sentence starts close by.
+  static double widthOf(BuildContext context) => context.textScaled(28);
+  static const double gap = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // The sentence's style: a ListTile title, bodyLarge in Material 3.
+    final style = theme.textTheme.bodyLarge;
+    final line = MediaQuery.textScalerOf(context).scale(style?.fontSize ?? 16) * (style?.height ?? 1.5);
+    final width = widthOf(context);
+    return SizedBox(
+      width: width,
+      height: line,
+      child: opens
+          // Centered on the first line, past it if the line is shorter
+          // than the circle: the row's padding has room. Both bounds, as a
+          // large text's line is taller than the circle (#250 review).
+          ? OverflowBox(
+              minHeight: width,
+              maxHeight: width,
+              child: Container(
+                width: width,
+                height: width,
+                decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, shape: BoxShape.circle),
+                child: Icon(icon, size: context.textScaled(16), color: theme.colorScheme.onPrimaryContainer),
+              ),
+            )
+          // The captions' secondary color, as the time beside it (#233).
+          : Icon(icon, size: context.textScaled(18), color: SpliitColors.of(context).secondaryContent),
+    );
+  }
+}
+
+/// An activity's sentence with its time at the end of its last line,
+/// right-aligned (#233), as a chat bubble's: on that line when it fits,
+/// else on a line of its own. Saves the line the time used to take under
+/// every sentence. In the captions' style (the list tile subtitle's), on
+/// the sentence's baseline.
+class _SentenceWithTime extends StatelessWidget {
+  const _SentenceWithTime({required this.sentence, required this.time});
+
+  final String sentence;
+  final String time;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // The theme's caption style is only color and spacing: ListTile adds
+    // bodyMedium's size itself, so this has to too.
+    final timeStyle = theme.textTheme.bodyMedium!.merge(theme.listTileTheme.subtitleTextStyle);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    // The sentence keeps room for the time at its end: an invisible copy,
+    // unbreakable, so its last line wraps exactly where the time won't fit.
+    final span = TextSpan(children: [
+      TextSpan(text: sentence),
+      TextSpan(
+          text: '\u2003${time.replaceAll(' ', '\u00a0')}',
+          style: timeStyle.copyWith(color: Colors.transparent)),
+    ]);
+    return LayoutBuilder(builder: (context, constraints) {
+      final style = DefaultTextStyle.of(context).style;
+      final caption = TextPainter(
+          text: TextSpan(text: time, style: style.merge(timeStyle)),
+          textDirection: direction,
+          textScaler: scaler)
+        ..layout();
+      // A time wider than the column (an older date with AM/PM, at a large
+      // text size, #235 review) can't trail anything: it goes under the
+      // sentence, right-aligned, wrapping within the column.
+      if (caption.width > constraints.maxWidth) {
+        caption.dispose();
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(sentence),
+          Text(time, style: timeStyle, textAlign: TextAlign.end),
+        ]);
+      }
+      final paragraph = TextPainter(
+          text: TextSpan(style: style, children: [span]),
+          textDirection: direction,
+          textScaler: scaler)
+        ..layout(maxWidth: constraints.maxWidth);
+      final lastBaseline = paragraph.computeLineMetrics().last.baseline;
+      final top = lastBaseline - caption.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      paragraph.dispose();
+      caption.dispose();
+      return Stack(children: [
+        Text.rich(span),
+        PositionedDirectional(
+          end: 0,
+          top: top,
+          // Read once, from the sentence's copy.
+          child: ExcludeSemantics(child: Text(time, style: timeStyle)),
+        ),
+      ]);
+    });
+  }
+}

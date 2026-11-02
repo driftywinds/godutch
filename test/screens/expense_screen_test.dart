@@ -1,0 +1,1794 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SemanticsNode;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:spliit2go/widgets/segmented_pill.dart';
+import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:spliit2go/api/spliit_client.dart';
+import 'package:spliit2go/db/app_database.dart';
+import 'package:spliit2go/l10n/app_localizations.dart';
+import 'package:spliit2go/models/category.dart';
+import 'package:spliit2go/models/default_split.dart';
+import 'package:spliit2go/models/expense.dart';
+import 'package:spliit2go/models/group.dart';
+import 'package:spliit2go/screens/expense_form/inline_number_field.dart';
+import 'package:spliit2go/screens/expense_form/split_card.dart';
+import 'package:spliit2go/screens/expense_form/currency_card.dart';
+import 'package:spliit2go/screens/expense_screen.dart';
+import 'package:spliit2go/services/settings_service.dart';
+import 'package:spliit2go/services/active_user.dart';
+import 'package:spliit2go/services/exchange_rates.dart';
+import 'package:spliit2go/sync/outbox.dart';
+import 'package:spliit2go/widgets/category_icon.dart';
+
+import '../support/error_log.dart';
+import '../support/haptics.dart';
+import '../support/test_db.dart';
+
+void main() {
+  // The rate's order is remembered per pair (#261).
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  const group = Group(
+    id: 'g1',
+    name: 'Banff Trip',
+    currency: '\$',
+    participants: [
+      Participant(id: 'alex', name: 'Alex'),
+      Participant(id: 'bea', name: 'Bea'),
+      Participant(id: 'cid', name: 'Cid'),
+    ],
+  );
+
+  /// [name]'s row in "Paid for" (#260).
+  Finder person(String name) =>
+      // In Evenly a row to tap; otherwise their value's row (#263).
+      find.ancestor(
+              of: find.descendant(of: find.byType(SplitCard), matching: find.text(name)),
+              matching: find.byWidgetPredicate((w) => w is InkWell || w is InlineNumberField));
+
+  /// Whether [name] is checked in an even split.
+  bool checked(WidgetTester tester, String name) => tester
+      .widget<Semantics>(find.ancestor(
+          of: person(name), matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.checked != null)))
+      .properties
+      .checked!;
+
+  /// Who "Paid by" shows.
+  Finder paidBy(String name) => find.descendant(
+      of: find.widgetWithText(GroupedRow, 'Paid by'), matching: find.text(name));
+
+  Future<void> pumpScreen(WidgetTester tester, AppDatabase db, {String? activeUserId}) async {
+    final client = SpliitClient(
+      baseUrl: 'https://example.test',
+      httpClient: MockClient((req) async => throw http.ClientException('offline')),
+    );
+    final outbox = Outbox(db, client, groupId: 'g1');
+    // Mirrors real usage: this screen is only ever reached from
+    // GroupScreen, which has already cached the group by the time it's
+    // opened -- needed here so the remembered-default-split feature
+    // (issue #29) has a Groups row to write to/read from.
+    await db.cacheGroup(group);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ExpenseScreen(
+        client: client,
+        db: db,
+        outbox: outbox,
+        group: group,
+        activeUserId: activeUserId,
+      ),
+    ));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> fillCommonFields(WidgetTester tester, {required String amount}) async {
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await tester.enterText(find.byKey(CurrencyCard.amountFieldKey), amount);
+  }
+
+  // Taps the named segment of the "Paid for" section's mode control
+  // (issue #29's replacement for the old split-mode dropdown). Scoped to
+  // that widget specifically, since e.g. 'Amount' is ambiguous with the
+  // main Amount field's own label text.
+  Future<void> selectSplitMode(WidgetTester tester, String label) async {
+    final finder = find.descendant(
+      of: find.byType(SegmentedPill<SplitMode>),
+      matching: find.text(label),
+    );
+    await tester.ensureVisible(finder);
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('evenly split (default): every participant included, no per-person input',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpenses();
+    expect(pending, hasLength(1));
+    final expense = db.rowToExpense(pending.single);
+    expect(expense.splitMode, SplitMode.evenly);
+    expect(expense.paidFor.map((s) => s.participantId).toSet(), {'alex', 'bea', 'cid'});
+    expect(expense.paidFor.every((s) => s.shares == 1), isTrue);
+    // Orders it among same-day expenses until a refresh brings the
+    // server's own creation time (#88).
+    expect(expense.createdAt, isNotNull);
+  });
+
+  testWidgets('excluding a participant leaves them out of paidFor', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await tester.ensureVisible(person('Cid'));
+    await tester.tap(person('Cid'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpenses();
+    final expense = db.rowToExpense(pending.single);
+    expect(expense.paidFor.map((s) => s.participantId).toSet(), {'alex', 'bea'});
+  });
+
+  testWidgets('an amount pasted with its symbol and grouping saves (#238)', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+    await fillCommonFields(tester, amount: r'$1,234.56');
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpensesForGroup(group.id);
+    expect(db.rowToExpense(pending.single).amountCents, 123456);
+  });
+
+  testWidgets("a shorthand like 1.2k isn't saved as another amount (#238 review)", (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+    await fillCommonFields(tester, amount: '1.2k');
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    expect(await db.pendingExpensesForGroup(group.id), isEmpty);
+    expect(find.text('Enter a valid amount'), findsOneWidget);
+  });
+
+  testWidgets('comma total and split amounts persist as integer cents',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+    await fillCommonFields(tester, amount: '12,50');
+
+    // Two included participants, each paying half of the total.
+    await tester.ensureVisible(person('Cid'));
+    await tester.tap(person('Cid'));
+    await tester.pumpAndSettle();
+    await selectSplitMode(tester, 'Amount');
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(2), '6,25');
+    await tester.enterText(fields.at(3), '6,25');
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    // Offline creates are the persisted rows consumed by Outbox.flush.
+    final pending = await db.pendingExpensesForGroup(group.id);
+    expect(pending, hasLength(1));
+    final expense = db.rowToExpense(pending.single);
+    expect(expense.amountCents, 1250);
+    expect(expense.splitMode, SplitMode.byAmount);
+    expect(
+      {for (final share in expense.paidFor) share.participantId: share.shares},
+      {'alex': 625, 'bea': 625},
+    );
+  });
+
+  testWidgets('by-amount split rejects amounts that don\'t add up to the total',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+    final haptics = recordHaptics(tester);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Amount');
+
+    final amountFields = find.byType(TextFormField);
+    // Title, Amount, then one per participant (alex, bea, cid) in order.
+    await tester.enterText(amountFields.at(2), '30');
+    await tester.enterText(amountFields.at(3), '30');
+    await tester.enterText(amountFields.at(4), '20'); // 30+30+20 = 80, not 90
+
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    expect(await db.pendingExpenses(), isEmpty);
+    // Which way it's off, not just by how much.
+    expect(find.textContaining(RegExp(r'^Amounts must add up to the total \(.*10\.00 short\)$')), findsOneWidget);
+    // The refusal is felt too (#179).
+    expect(haptics, ['HapticFeedbackType.errorNotification']);
+    await tester.enterText(amountFields.at(4), '40');
+    await tester.pumpAndSettle();
+    expect(find.textContaining(RegExp(r'^Amounts must add up to the total \(.*10\.00 over\)$')), findsOneWidget);
+  });
+
+  testWidgets('by-amount split with matching amounts saves with exact per-person shares',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+    final haptics = recordHaptics(tester);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Amount');
+
+    final amountFields = find.byType(TextFormField);
+    await tester.enterText(amountFields.at(2), '50');
+    await tester.enterText(amountFields.at(3), '30');
+    await tester.enterText(amountFields.at(4), '10');
+
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpenses();
+    final expense = db.rowToExpense(pending.single);
+    expect(expense.splitMode, SplitMode.byAmount);
+    final byId = {for (final s in expense.paidFor) s.participantId: s.shares};
+    expect(byId, {'alex': 5000, 'bea': 3000, 'cid': 1000});
+    expect(haptics, ['HapticFeedbackType.successNotification']); // #179
+  });
+
+  testWidgets('by-percentage split rejects percentages that don\'t sum to 100',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Percent');
+
+    final amountFields = find.byType(TextFormField);
+    await tester.enterText(amountFields.at(2), '50');
+    await tester.enterText(amountFields.at(3), '30');
+    await tester.enterText(amountFields.at(4), '10'); // sums to 90, not 100
+
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    expect(await db.pendingExpenses(), isEmpty);
+    expect(find.text('Percentages must add up to 100% (10% short)'), findsOneWidget);
+    await tester.enterText(amountFields.at(4), '25');
+    await tester.pumpAndSettle();
+    expect(find.text('Percentages must add up to 100% (5% over)'), findsOneWidget);
+  });
+
+  // Regression test for issue #18: the server expects shares to sum to
+  // 10000 (basis points), not the 100 the UI takes from the user.
+  testWidgets('by-percentage split sends shares as basis points (issue #18)',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Percent');
+
+    final amountFields = find.byType(TextFormField);
+    await tester.enterText(amountFields.at(2), '50');
+    await tester.enterText(amountFields.at(3), '30');
+    await tester.enterText(amountFields.at(4), '20'); // sums to 100
+
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpenses();
+    final expense = db.rowToExpense(pending.single);
+    expect(expense.splitMode, SplitMode.byPercentage);
+    final byId = {for (final s in expense.paidFor) s.participantId: s.shares};
+    expect(byId, {'alex': 5000, 'bea': 3000, 'cid': 2000});
+  });
+
+  testWidgets('defaults "Paid by" to the saved active user, when they\'re in this group',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db, activeUserId: 'bea');
+
+    expect(paidBy('Bea (you)'), findsOneWidget);
+  });
+
+  testWidgets('falls back to the first participant when there\'s no saved active user',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    expect(paidBy('Alex'), findsOneWidget);
+  });
+
+  // The mock server's category list used by the picker tests below --
+  // two groupings, matching Spliit's real shape (categories.list returns
+  // {id, name, grouping}), so grouping and cross-group search can both be
+  // exercised.
+  String categoriesResponseBody() => '[{"result":{"data":{"json":{"categories":'
+      '[{"id":0,"name":"General","grouping":"Uncategorized"},'
+      '{"id":9,"name":"Groceries","grouping":"Food and Drink"},'
+      '{"id":8,"name":"Dining Out","grouping":"Food and Drink"},'
+      '{"id":20,"name":"Gas/Fuel","grouping":"Transportation"}]}}}}]';
+
+  testWidgets('loads categories from the server and selecting one updates the field',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final client = SpliitClient(
+      baseUrl: 'https://example.test',
+      httpClient: MockClient((req) async {
+        expect(req.url.toString(), contains('categories.list'));
+        return http.Response(categoriesResponseBody(), 200);
+      }),
+    );
+    final outbox = Outbox(db, client, groupId: 'g1');
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ExpenseScreen(client: client, db: db, outbox: outbox, group: group),
+    ));
+    await tester.pumpAndSettle();
+
+    // Categories loaded successfully (would still show just 'General' if
+    // the fetch had failed) -- open the picker, confirm it's there, and
+    // pick a category. Checking the field's displayed value directly
+    // (rather than saving and reading the persisted expense back)
+    // sidesteps needing a full save-flow round trip through a form this
+    // test isn't otherwise exercising.
+    await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
+    await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Groceries'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(GroupedRow, 'Groceries'), findsOneWidget);
+  });
+
+  // #132: offline, the picker used to have General only.
+  testWidgets('offline before the list was ever read, the picker has every Spliit category',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db); // pumpScreen's client always throws (offline)
+
+    await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
+    await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search categories'), 'gro');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Groceries'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(GroupedRow, 'Groceries'), findsOneWidget);
+  });
+
+  testWidgets('offline, the picker has the server\'s list as last read', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await tester.runAsync(() => db.replaceCategories('https://example.test', const [
+          Category(id: 0, name: 'General', grouping: 'Uncategorized'),
+          Category(id: 44, name: 'Hobbies', grouping: 'Life'),
+        ]));
+    await pumpScreen(tester, db);
+
+    await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
+    await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hobbies'), findsOneWidget);
+    expect(find.text('Groceries'), findsNothing);
+  });
+
+  testWidgets('category picker groups categories under their grouping header', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => http.Response(categoriesResponseBody(), 200)),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(client: client, db: db, outbox: outbox, group: group),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
+      await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+      await tester.pumpAndSettle();
+
+      // Grouping headers are shown, and "Groceries"/"Dining Out" both
+      // appear once each under "Food and Drink" -- not flattened into
+      // one long undifferentiated list.
+      expect(find.text('Food and Drink'), findsOneWidget);
+      expect(find.text('Transportation'), findsOneWidget);
+      expect(find.text('Groceries'), findsOneWidget);
+      expect(find.text('Dining Out'), findsOneWidget);
+      expect(find.text('Gas/Fuel'), findsOneWidget);
+    });
+
+  testWidgets('category picker type-ahead search narrows the list to matching categories', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => http.Response(categoriesResponseBody(), 200)),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(client: client, db: db, outbox: outbox, group: group),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
+      await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Search categories'), 'gas');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Gas/Fuel'), findsOneWidget);
+      expect(find.text('Groceries'), findsNothing);
+      expect(find.text('Dining Out'), findsNothing);
+      // A grouping with no matches under the current query is hidden
+      // entirely, not shown as an empty section.
+      expect(find.text('Food and Drink'), findsNothing);
+    });
+
+  final existingExpenseForEdit = Expense(
+      id: 'e1',
+      groupId: 'g1',
+      title: 'Groceries',
+      amountCents: 9000,
+      paidBy: 'bea',
+      paidFor: const [
+        ExpenseShare(participantId: 'alex', shares: 1),
+        ExpenseShare(participantId: 'bea', shares: 1),
+      ],
+      splitMode: SplitMode.evenly,
+      category: 0,
+      notes: 'weekly shop',
+      date: DateTime.utc(2026, 9, 10),
+      recurrenceRule: RecurrenceRule.weekly,
+    );
+
+    testWidgets('shows "Edit expense" and prefills fields from the existing expense',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(
+          client: client,
+          db: db,
+          outbox: outbox,
+          group: group,
+          existingExpense: existingExpenseForEdit,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit expense'), findsOneWidget);
+      expect(find.text('Groceries'), findsOneWidget);
+      expect(find.text('90.00'), findsOneWidget);
+      expect(find.text('weekly shop'), findsOneWidget);
+      expect(paidBy('Bea'), findsOneWidget);
+      // 'cid' wasn't in the existing expense's paidFor -- should come up
+      // unchecked, not defaulted to included the way a brand-new add does.
+      expect(checked(tester, 'Cid'), isFalse);
+      // issue #35: alex/bea WERE in the existing expense's paidFor --
+      // should come up checked, not just Cid (excluded) coming up
+      // unchecked. This is the ExpenseScreen-level half of the
+      // regression; spliit_client_test.dart covers the SpliitClient
+      // parsing bug that actually caused it.
+      expect(checked(tester, 'Alex'), isTrue, reason: 'Alex was in paidFor');
+      expect(checked(tester, 'Bea'), isTrue, reason: 'Bea was in paidFor');
+    });
+
+    // Regression test for issue #18's edit-mode side: a byPercentage
+    // expense's shares are basis points on the wire (5000 = 50%) --
+    // prefilling the per-participant text field with the raw wire value
+    // would show "5000" instead of "50".
+    testWidgets("prefills a byPercentage expense's shares as whole percent, not basis points",
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+      final percentageExpense = Expense(
+        id: 'e2',
+        groupId: 'g1',
+        title: 'Rent',
+        amountCents: 100000,
+        paidBy: 'bea',
+        paidFor: const [
+          ExpenseShare(participantId: 'alex', shares: 5000),
+          ExpenseShare(participantId: 'bea', shares: 3000),
+          ExpenseShare(participantId: 'cid', shares: 2000),
+        ],
+        splitMode: SplitMode.byPercentage,
+        date: DateTime.utc(2026, 9, 10),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(
+          client: client,
+          db: db,
+          outbox: outbox,
+          group: group,
+          existingExpense: percentageExpense,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('50'), findsOneWidget);
+      expect(find.text('30'), findsOneWidget);
+      expect(find.text('20'), findsOneWidget);
+      expect(find.text('5000'), findsNothing);
+    });
+
+    // Regression test for issue #34's reopened follow-up: a real
+    // spliit-web-created Evenly expense stores shares:100 per participant
+    // on the wire (see expense-form.tsx upstream), not 1. Prefilling the
+    // per-participant field with that raw value meant switching *this*
+    // editing expense from Evenly to Shares showed "100" instead of the
+    // "1" a brand-new expense starts with.
+    testWidgets(
+        'switching an editing expense from Evenly to Shares defaults fields to 1, '
+        'not the raw wire shares:100', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+      final evenlyExpense = Expense(
+        id: 'e3',
+        groupId: 'g1',
+        title: 'Dinner',
+        amountCents: 6000,
+        paidBy: 'bea',
+        paidFor: const [
+          ExpenseShare(participantId: 'alex', shares: 100),
+          ExpenseShare(participantId: 'bea', shares: 100),
+        ],
+        splitMode: SplitMode.evenly,
+        date: DateTime.utc(2026, 9, 10),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(
+          client: client,
+          db: db,
+          outbox: outbox,
+          group: group,
+          existingExpense: evenlyExpense,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await selectSplitMode(tester, 'Shares');
+
+      expect(find.text('100'), findsNothing);
+      expect(find.text('1'), findsNWidgets(2));
+    });
+
+    testWidgets('saving calls SpliitClient.updateExpense, not createExpense/insertPending',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      http.Request? captured;
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async {
+          // Only the update is served; the categories fail as if offline and
+          // the form falls back to General (#132).
+          if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
+          captured = req;
+          return http.Response('[{"result":{"data":{"json":{"expenseId":"e1"}}}}]', 200);
+        }),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(
+          client: client,
+          db: db,
+          outbox: outbox,
+          group: group,
+          existingExpense: existingExpenseForEdit,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextFormField, 'Groceries'), 'Groceries (updated)');
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!.url.toString(), contains('groups.expenses.update'));
+      // Edit mode never writes a local pending row -- there's no offline
+      // queueing path for edits (see the screen's class doc comment).
+      expect(await db.pendingExpenses(), isEmpty);
+    });
+
+    testWidgets('save failure (e.g. offline) shows an error and stays on the form',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+      );
+      final outbox = Outbox(db, client, groupId: 'g1');
+
+      await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+        home: ExpenseScreen(
+          client: client,
+          db: db,
+          outbox: outbox,
+          group: group,
+          existingExpense: existingExpenseForEdit,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("Couldn't reach the server. Check your connection and try again."), findsOneWidget);
+      // Still on the edit screen (didn't pop), and nothing was queued.
+      expect(find.text('Edit expense'), findsOneWidget);
+      expect(await db.pendingExpenses(), isEmpty);
+    });
+
+  // A group with no currencyCode (the module-level `group` fixture, and
+  // every group that predates issue #23) can't offer currency-picker
+  // conversion -- there's no code to look up an exchange rate with.
+  testWidgets('a group whose currency has no code has no Paid in row (#252)', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db); // module-level `group` has no currencyCode
+    expect(find.text('Paid in'), findsNothing);
+    expect(find.text('Exchange rate'), findsNothing);
+  });
+
+  // #251: Spliit stores each currency in its own smallest unit -- whole
+  // yen, cents of a euro -- as spliit-web's amountAsMinorUnits does.
+  Future<AppDatabase> pumpGroup(WidgetTester tester, Group group,
+      {Expense? editing,
+      _FakeRates Function(AppDatabase db)? rates,
+      MockClient? server,
+      SettingsService? settings}) async {
+    final db = await openTestDb(tester);
+    ExchangeRates.use(rates?.call(db) ?? _FakeRates(db));
+    final client = SpliitClient(
+      baseUrl: 'https://example.test',
+      httpClient: server ?? MockClient((req) async => throw http.ClientException('offline')),
+    );
+    await db.cacheGroup(group);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ExpenseScreen(
+        client: client,
+        db: db,
+        outbox: Outbox(db, client, groupId: group.id),
+        group: group,
+        existingExpense: editing,
+        settings: settings,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    return db;
+  }
+
+  const yenGroup = Group(
+    id: 'g3',
+    name: 'Kyoto',
+    currency: '¥',
+    currencyCode: 'JPY',
+    participants: [
+      Participant(id: 'alex', name: 'Alex'),
+      Participant(id: 'bea', name: 'Bea'),
+    ],
+  );
+  const euroGroup = Group(
+    id: 'g4',
+    name: 'Lisbon',
+    currency: '€',
+    currencyCode: 'EUR',
+    participants: [
+      Participant(id: 'alex', name: 'Alex'),
+      Participant(id: 'bea', name: 'Bea'),
+    ],
+  );
+
+  // #252: "Paid in" picks the currency; the amount is in it (#261).
+  Future<void> paidIn(WidgetTester tester, String amount, String currencySearch, String currency) async {
+    await tester.ensureVisible(find.widgetWithText(GroupedRow, 'Paid in'));
+    await tester.tap(find.widgetWithText(GroupedRow, 'Paid in'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search currency...'), currencySearch);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(currency));
+    await tester.pumpAndSettle();
+    if (amount.isNotEmpty) {
+      await tester.enterText(find.byKey(CurrencyCard.amountFieldKey), amount);
+      await tester.pumpAndSettle();
+    }
+  }
+
+  // #254 review: an amount that rounds to zero is refused.
+  Future<void> tapSave(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+  }
+
+  Finder rateField() => find.byKey(CurrencyCard.rateFieldKey);
+  String rateText(WidgetTester tester) => tester.widget<TextFormField>(rateField()).controller!.text;
+
+  Future<Expense> save(WidgetTester tester, AppDatabase db) async {
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+    return db.rowToExpense((await db.pendingExpenses()).single);
+  }
+
+  testWidgets('a yen group stores whole yen, amounts and split amounts alike (#251)',
+      (tester) async {
+    final db = await pumpGroup(tester, yenGroup);
+    await fillCommonFields(tester, amount: '1,000');
+    await selectSplitMode(tester, 'Amount');
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(2), '600');
+    await tester.enterText(fields.at(3), '400');
+
+    final saved = await save(tester, db);
+    expect(saved.amountCents, 1000);
+    expect({for (final s in saved.paidFor) s.participantId: s.shares}, {'alex': 600, 'bea': 400});
+  });
+
+  testWidgets('a yen group shows a split left over in whole yen (#251)', (tester) async {
+    await pumpGroup(tester, yenGroup);
+    await fillCommonFields(tester, amount: '1000');
+    await selectSplitMode(tester, 'Amount');
+    await tester.enterText(find.byType(TextFormField).at(2), '600');
+    await tester.enterText(find.byType(TextFormField).at(3), '300');
+    await tester.pumpAndSettle();
+    expect(find.text('¥100 still to allocate.'), findsOneWidget);
+  });
+
+  testWidgets('editing a yen expense shows its amount in yen, not hundredths (#251)',
+      (tester) async {
+    await pumpGroup(
+      tester,
+      yenGroup,
+      editing: Expense(
+        id: 'e1',
+        groupId: 'g3',
+        title: 'Ramen',
+        amountCents: 1000,
+        paidBy: 'alex',
+        paidFor: const [
+          ExpenseShare(participantId: 'alex', shares: 600),
+          ExpenseShare(participantId: 'bea', shares: 400),
+        ],
+        splitMode: SplitMode.byAmount,
+        category: 0,
+        notes: '',
+        date: DateTime.utc(2026, 10, 1),
+        originalAmountCents: 610,
+        originalCurrency: 'EUR',
+        conversionRate: 1000 / 6.10,
+      ),
+    );
+    // The amount is worked out from the euros paid at the saved rate; each
+    // person's is in euros, the saved yen shared out (#261).
+    expect(find.text('¥1,000'), findsOneWidget);
+    expect(find.text('3.66'), findsOneWidget);
+    expect(find.text('2.44'), findsOneWidget);
+    expect(find.text('6.10'), findsOneWidget);
+  });
+
+  testWidgets('Paid in shows its currency\'s flag, and no chevron: it opens a sheet', (tester) async {
+    await pumpGroup(tester, euroGroup);
+    final row = find.widgetWithText(GroupedRow, 'Paid in');
+    expect(find.descendant(of: row, matching: find.text('🇪🇺')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.byIcon(Icons.chevron_right)), findsNothing);
+    await paidIn(tester, '', 'Yen', 'Japanese Yen (JPY)');
+    expect(find.descendant(of: row, matching: find.text('🇯🇵')), findsOneWidget);
+  });
+
+  testWidgets('a euro group stores a yen expense in whole yen, at the published rate (#251, #252)',
+      (tester) async {
+    final db = await pumpGroup(tester, euroGroup);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+
+    // Filled in, the euro first (#261), and the total worked out from it.
+    expect(rateText(tester), '163.934');
+    // Published on another day than the expense's, which it says.
+    expect(find.text('EUR/JPY 163.934 is the published rate on Oct 1, 2026.'), findsOneWidget);
+    expect(find.widgetWithText(GroupedRow, 'In Euro'), findsOneWidget);
+    expect(find.text('€6.10'), findsOneWidget);
+
+    // What spliit-web stores for €6.10 paid as ¥1,000.
+    final saved = await save(tester, db);
+    expect(saved.amountCents, 610);
+    expect(saved.originalAmountCents, 1000);
+    expect(saved.originalCurrency, 'JPY');
+    // Worked out from the number shown, EUR/JPY 163.934 (#261).
+    expect(saved.conversionRate, 1 / 163.934);
+    // amount = round(originalAmount × rate × 10^2 / 10^0)
+    expect((saved.originalAmountCents! * saved.conversionRate! * 100).round(), saved.amountCents);
+  });
+
+  testWidgets('a typed rate is never overwritten, until "Use the published rate" (#252)',
+      (tester) async {
+    final answer = Completer<ExchangeRate>();
+    late _FakeRates rates;
+    final db = await pumpGroup(tester, euroGroup, rates: (db) => rates = _FakeRates(db, answer: (_, __, ___) => answer.future));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    expect(find.text('Getting the exchange rate…'), findsOneWidget);
+
+    // Typed before the published rate arrives: it stays, with the
+    // published one quoted under it (#261).
+    await tester.enterText(rateField(), '166.667');
+    answer.complete(_FakeRates.published(0.0061));
+    await tester.pumpAndSettle();
+    expect(rateText(tester), '166.667');
+    expect(find.text('Using the rate you entered. EUR/JPY 163.934 is the published rate on Oct 1, 2026.'),
+        findsOneWidget);
+    expect(find.text('€6.00'), findsOneWidget);
+
+    // Nor does another day's rate replace it.
+    rates.answer = (_, __, ___) async => _FakeRates.published(0.0062);
+    await tester.tap(find.widgetWithText(GroupedRow, 'Date'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15'));
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(rateText(tester), '166.667');
+
+    await tester.ensureVisible(find.text('Use the published rate'));
+    await tester.tap(find.text('Use the published rate'));
+    await tester.pumpAndSettle();
+    expect(rateText(tester), '161.29');
+    expect(rates.forced, 1);
+    expect(find.text('Use the published rate'), findsNothing);
+    expect((await save(tester, db)).amountCents, 620);
+  });
+
+  testWidgets('an offline rate says which day it is from (#252)', (tester) async {
+    await pumpGroup(tester, euroGroup,
+        rates: (db) => _FakeRates(db,
+            answer: (_, __, ___) async => _FakeRates.published(0.0061, offline: true, on: DateTime.utc(2026, 9, 30))));
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    expect(find.text('Offline: EUR/JPY 163.934 is the last published rate saved, from Sep 30, 2026.'),
+        findsOneWidget);
+    expect(find.text('Use the published rate'), findsOneWidget);
+  });
+
+  testWidgets('with no rate to be had, one must be typed (#252)', (tester) async {
+    final db = await pumpGroup(tester, euroGroup,
+        rates: (db) => _FakeRates(db, answer: (_, __, ___) async => throw const RatesUnavailable()));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    expect(find.text("Couldn't reach the rates service. Enter the rate yourself."), findsOneWidget);
+    expect(find.text('Not yet known'), findsNothing); // shown as a dash, labelled for screen readers
+    await tapSave(tester);
+    expect(find.text('Enter a rate greater than zero'), findsOneWidget);
+    expect(await db.pendingExpenses(), isEmpty);
+
+    await tester.enterText(rateField(), '163,9344'); // either separator ("163,934" is thousands, #238)
+    expect((await save(tester, db)).amountCents, 610);
+  });
+
+  testWidgets('editing a conversion keeps its saved rate; the published one is only quoted (#252, #261)',
+      (tester) async {
+    late _FakeRates rates;
+    Map<String, dynamic>? sent;
+    await pumpGroup(
+      tester,
+      euroGroup,
+      rates: (db) => rates = _FakeRates(db),
+      server: MockClient((req) async {
+        if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
+        sent = (jsonDecode(req.body) as Map)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+        return http.Response('[{"result":{"data":{"json":{"expenseId":"e2"}}}}]', 200);
+      }),
+      editing: Expense(
+        id: 'e2',
+        groupId: 'g4',
+        title: 'Ramen',
+        amountCents: 610,
+        paidBy: 'alex',
+        paidFor: const [ExpenseShare(participantId: 'alex', shares: 1)],
+        date: DateTime.utc(2026, 10, 1),
+        originalAmountCents: 1000,
+        originalCurrency: 'JPY',
+        conversionRate: 0.00609756097560976,
+      ),
+    );
+    expect(rates.lookups, 1);
+    expect(rateText(tester), '164');
+    expect(
+        find.text('Using the rate saved with this expense. EUR/JPY 163.934 is the published rate on Oct 1, 2026.'),
+        findsOneWidget);
+    expect(find.text('Use the published rate'), findsOneWidget);
+    await tapSave(tester);
+    expect((sent!['conversionRate'], sent!['amount'], sent!['originalAmount'], sent!['originalCurrency']),
+        (0.00609756097560976, 610, 1000, 'JPY'));
+  });
+
+  testWidgets('a saved rate shows the euro first and is sent back as stored (#261, acceptance case 3)',
+      (tester) async {
+    Map<String, dynamic>? sent;
+    await pumpGroup(
+      tester,
+      euroGroup,
+      server: MockClient((req) async {
+        if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
+        sent = (jsonDecode(req.body) as Map)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+        return http.Response('[{"result":{"data":{"json":{"expenseId":"e5"}}}}]', 200);
+      }),
+      editing: Expense(
+        id: 'e5',
+        groupId: 'g4',
+        title: 'Ramen',
+        amountCents: 565,
+        paidBy: 'alex',
+        paidFor: const [ExpenseShare(participantId: 'alex', shares: 1)],
+        date: DateTime.utc(2026, 10, 1),
+        originalAmountCents: 1000,
+        originalCurrency: 'JPY',
+        conversionRate: 0.00565,
+      ),
+    );
+    expect((find.text('EUR/JPY').evaluate().length, rateText(tester)), (1, '176.991'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Ramen'), 'Ramen and gyoza');
+    await tapSave(tester);
+    expect((sent!['conversionRate'], sent!['amount']), (0.00565, 565));
+  });
+
+  testWidgets('a screen reader names the rate field by its pair, not by its number (#288)', (tester) async {
+    await pumpGroup(tester, euroGroup);
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    SemanticsNode node() => tester.getSemantics(find.descendant(of: rateField(), matching: find.byType(EditableText)));
+    expect((node().label, node().value), ('Exchange rate, EUR/JPY', '163.934'));
+    await tester.ensureVisible(find.text('EUR/JPY'));
+    await tester.tap(find.text('EUR/JPY'));
+    await tester.pumpAndSettle();
+    expect(node().label, 'Exchange rate, JPY/EUR');
+  });
+
+  testWidgets('a tap on the pair swaps it, remembered for the pair on this device (#261)', (tester) async {
+    await pumpGroup(tester, euroGroup);
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    expect(rateText(tester), '163.934');
+    await tester.ensureVisible(find.text('EUR/JPY'));
+    await tester.tap(find.text('EUR/JPY'));
+    await tester.pumpAndSettle();
+    expect((find.text('JPY/EUR').evaluate().length, rateText(tester)), (1, '0.0061'));
+    expect(find.text('JPY/EUR 0.0061 is the published rate on Oct 1, 2026.'), findsOneWidget);
+    expect(find.text('€6.10'), findsOneWidget);
+    expect((await SharedPreferences.getInstance()).getString('rate_base.EUR/JPY'), 'JPY');
+
+    // The next yen expense in a euro group starts that way round.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpGroup(tester, euroGroup);
+    await paidIn(tester, '', 'Yen', 'Japanese Yen (JPY)');
+    expect((find.text('JPY/EUR').evaluate().length, rateText(tester)), (1, '0.0061'));
+  });
+
+  testWidgets('a swap made while the saved order is being read stays (#270 review)', (tester) async {
+    final read = Completer<String?>();
+    final settings = _SlowRateBase(read.future);
+    await pumpGroup(tester, euroGroup, settings: settings);
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    await tester.ensureVisible(find.text('EUR/JPY'));
+    await tester.tap(find.text('EUR/JPY'));
+    await tester.pumpAndSettle();
+    expect(find.text('JPY/EUR'), findsOneWidget);
+
+    read.complete(null);
+    await tester.pumpAndSettle();
+    expect((find.text('JPY/EUR').evaluate().length, rateText(tester)), (1, '0.0061'));
+    expect(settings.saved, 'JPY');
+  });
+
+  testWidgets('editing a web expense keeps its total until its conversion changes (#255 review)',
+      (tester) async {
+    Map<String, dynamic>? sent;
+    await pumpGroup(
+      tester,
+      euroGroup,
+      server: MockClient((req) async {
+        if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
+        sent = (jsonDecode(req.body) as Map)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+        return http.Response('[{"result":{"data":{"json":{"expenseId":"e3"}}}}]', 200);
+      }),
+      // spliit-web lets the total differ from 1000 × 0.0061 = 610.
+      editing: Expense(
+        id: 'e3',
+        groupId: 'g4',
+        title: 'Ramen',
+        amountCents: 615,
+        paidBy: 'alex',
+        paidFor: const [
+          ExpenseShare(participantId: 'alex', shares: 315),
+          ExpenseShare(participantId: 'bea', shares: 300),
+        ],
+        splitMode: SplitMode.byAmount,
+        date: DateTime.utc(2026, 10, 1),
+        originalAmountCents: 1000,
+        originalCurrency: 'JPY',
+        conversionRate: 0.0061,
+      ),
+    );
+    expect(find.text('€6.15'), findsOneWidget);
+
+    // Changing the amount paid works it out again; back, it's as saved.
+    await tester.enterText(find.byKey(CurrencyCard.amountFieldKey), '2000');
+    await tester.pump();
+    expect(find.text('€12.20'), findsOneWidget);
+    await tester.enterText(find.byKey(CurrencyCard.amountFieldKey), '1000');
+    await tester.pump();
+    expect(find.text('€6.15'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextFormField, 'Ramen'), 'Ramen and gyoza');
+    await tapSave(tester);
+    expect((sent!['amount'], sent!['originalAmount'], sent!['conversionRate']), (615, 1000, 0.0061));
+  });
+
+  testWidgets('a rate typed while the published one is on its way is kept (#255 review)',
+      (tester) async {
+    late _FakeRates rates;
+    await pumpGroup(tester, euroGroup, rates: (db) => rates = _FakeRates(db));
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    await tester.enterText(rateField(), '166.667');
+    await tester.pump();
+
+    final answer = Completer<ExchangeRate>();
+    rates.answer = (_, __, ___) => answer.future;
+    await tester.ensureVisible(find.text('Use the published rate'));
+    await tester.tap(find.text('Use the published rate'));
+    await tester.pump();
+    await tester.enterText(rateField(), '142.857');
+    answer.complete(_FakeRates.published(0.0062));
+    await tester.pumpAndSettle();
+    expect(rateText(tester), '142.857');
+    expect(find.text('€7.00'), findsOneWidget);
+
+    // Even typed back to the rate filled in before, it's the user's.
+    final again = Completer<ExchangeRate>();
+    rates.answer = (_, __, ___) => again.future;
+    await tester.tap(find.text('Use the published rate'));
+    await tester.pump();
+    await tester.enterText(rateField(), '163.934');
+    again.complete(_FakeRates.published(0.0063));
+    await tester.pumpAndSettle();
+    expect(rateText(tester), '163.934');
+  });
+
+  testWidgets('back to the group currency keeps the total and drops the conversion (#252)',
+      (tester) async {
+    final db = await pumpGroup(tester, euroGroup);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await paidIn(tester, '1000', 'Yen', 'Japanese Yen (JPY)');
+    await paidIn(tester, '', 'Euro', 'Euro (EUR)');
+    expect(find.text('Exchange rate'), findsNothing);
+    expect(tester.widget<TextFormField>(find.byKey(CurrencyCard.amountFieldKey)).controller!.text, '6.10');
+    final saved = await save(tester, db);
+    expect((saved.amountCents, saved.originalCurrency, saved.conversionRate), (610, null, null));
+  });
+
+  testWidgets('a settlement\'s To leaves out its From', (tester) async {
+    await pumpGroup(tester, euroGroup);
+    await tester.tap(find.byTooltip('Switch to settlement'));
+    await tester.pumpAndSettle();
+    final from = find.descendant(of: find.widgetWithText(GroupedRow, 'From'), matching: find.byType(Text)).last;
+    final payer = euroGroup.participants.firstWhere((p) => tester.widget<Text>(from).data!.startsWith(p.name));
+    for (final p in euroGroup.participants) {
+      expect(find.byKey(SplitCard.valueKey(p.id)), p == payer ? findsNothing : findsOneWidget);
+    }
+  });
+
+  testWidgets('a settlement in another currency: its To amounts in it, converted (#262)', (tester) async {
+    final db = await pumpGroup(tester, euroGroup);
+    await tester.tap(find.byTooltip('Switch to settlement'));
+    await tester.pumpAndSettle();
+    await paidIn(tester, '', 'Yen', 'Japanese Yen (JPY)');
+    expect(find.byKey(CurrencyCard.amountFieldKey), findsNothing);
+    expect(find.text('From'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(SplitCard.valueKey('bea')));
+    await tester.enterText(find.byKey(SplitCard.valueKey('bea')), '1000');
+    await tester.pumpAndSettle();
+    // Total in yen, and in euros; what was paid in words.
+    expect(find.widgetWithText(GroupedRow, 'Total'), findsOneWidget);
+    expect(find.text('¥1,000'), findsOneWidget);
+    expect(find.text('€6.10'), findsOneWidget);
+    // No "Alex paid Bea" sentence: it only repeated the card (Kenneth, 2026-10-10).
+    expect(find.textContaining('paid Bea'), findsNothing);
+    final saved = await save(tester, db);
+    expect((saved.title, saved.amountCents, saved.originalAmountCents, saved.originalCurrency),
+        ('Settlement', 610, 1000, 'JPY'));
+    expect(saved.paidFor.map((s) => (s.participantId, s.shares)), [('bea', 610)]);
+  });
+
+  testWidgets('a settlement that converts to nothing scrolls to where it says so (#271 review)', (tester) async {
+    // A phone's height, so the To card can be scrolled out of sight.
+    tester.view
+      ..physicalSize = const Size(400, 480)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = await pumpGroup(tester, euroGroup);
+    await tester.tap(find.byTooltip('Switch to settlement'));
+    await tester.pumpAndSettle();
+    await paidIn(tester, '', 'Yen', 'Japanese Yen (JPY)');
+    await tester.enterText(rateField(), '1000'); // EUR/JPY: a yen is a tenth of a cent
+    await tester.ensureVisible(find.byKey(SplitCard.valueKey('bea')));
+    await tester.enterText(find.byKey(SplitCard.valueKey('bea')), '1');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(SplitCard.valueKey('bea')).hitTestable(), findsNothing);
+
+    await tapSave(tester);
+    const error = "The amount in the group's currency rounds to nothing. Change the amount or the rate.";
+    expect(find.text(error).hitTestable(), findsOneWidget);
+    expect(await db.pendingExpenses(), isEmpty);
+
+    // Corrected, it saves.
+    await tester.enterText(find.byKey(SplitCard.valueKey('bea')), '1000');
+    await tester.pump();
+    expect(find.text(error), findsNothing);
+    // Its selection handle, at the top of so short a screen, covers Save.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    expect((await save(tester, db)).amountCents, 100);
+  });
+
+  testWidgets('a yen group rejects an amount under one yen (#254)', (tester) async {
+    final db = await pumpGroup(tester, yenGroup);
+    await fillCommonFields(tester, amount: '0.4');
+    await tapSave(tester);
+    expect(find.text('Enter a valid amount'), findsOneWidget);
+    expect(await db.pendingExpenses(), isEmpty);
+  });
+
+  testWidgets('an original amount under one yen is rejected, not saved as 0 (#254)',
+      (tester) async {
+    final db = await pumpGroup(tester, euroGroup);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await paidIn(tester, '0.1', 'Yen', 'Japanese Yen (JPY)');
+    await tapSave(tester);
+    expect(find.text('Enter a valid amount'), findsOneWidget);
+    expect(await db.pendingExpenses(), isEmpty);
+
+    // A whole yen is fine -- but at EUR/JPY 1000 it's less than a cent.
+    await tester.enterText(find.byKey(CurrencyCard.amountFieldKey), '1');
+    await tester.enterText(rateField(), '1000');
+    await tapSave(tester);
+    expect(find.text("The amount in the group's currency rounds to nothing. Change the amount or the rate."),
+        findsOneWidget);
+    expect(await db.pendingExpenses(), isEmpty);
+
+    await tester.enterText(find.byKey(CurrencyCard.amountFieldKey), '100');
+    final saved = await save(tester, db);
+    expect((saved.originalAmountCents, saved.amountCents), (100, 10));
+  });
+
+  testWidgets('a euro group rejects an amount under one cent (#254)', (tester) async {
+    final db = await pumpGroup(tester, euroGroup);
+    await fillCommonFields(tester, amount: '0.004');
+    await tapSave(tester);
+    expect(find.text('Enter a valid amount'), findsOneWidget);
+    expect(await db.pendingExpenses(), isEmpty);
+  });
+
+  testWidgets('a yen group stores a euro expense in cents (#251)', (tester) async {
+    final db = await pumpGroup(tester, yenGroup,
+        rates: (db) => _FakeRates(db, answer: (_, __, ___) async => _FakeRates.published(163.934)));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Title'), 'Groceries');
+    await paidIn(tester, '6.10', 'Euro', 'Euro (EUR)');
+
+    final saved = await save(tester, db);
+    expect(saved.amountCents, 1000);
+    expect(saved.originalAmountCents, 610);
+    expect(saved.conversionRate, 163.934);
+    // amount = round(originalAmount × rate × 10^0 / 10^2)
+    expect((saved.originalAmountCents! * saved.conversionRate! / 100).round(), saved.amountCents);
+  });
+
+  // issue #29: "Paid for" UX rework (segmented control, select all/none,
+  // live preview, footer hint, remembered default split). Not wrapped in
+  // its own group() -- this file's module-level `group` fixture (a
+  // Group instance) shadows the flutter_test group() function for the
+  // rest of main()'s body once declared, same as everywhere else here.
+  testWidgets('"Select all"/"Select none" toggles every participant and flips its own label',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await pumpScreen(tester, db);
+
+      // Everyone starts included -> the link offers the opposite.
+      expect(find.widgetWithText(TextButton, 'Select none'), findsOneWidget);
+
+      await tester.ensureVisible(find.widgetWithText(TextButton, 'Select none'));
+      await tester.tap(find.widgetWithText(TextButton, 'Select none'));
+      await tester.pumpAndSettle();
+
+      expect(checked(tester, 'Alex'),
+          isFalse);
+      expect(checked(tester, 'Cid'),
+          isFalse);
+      expect(find.widgetWithText(TextButton, 'Select all'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Select all'));
+      await tester.pumpAndSettle();
+
+      expect(checked(tester, 'Alex'),
+          isTrue);
+      expect(find.widgetWithText(TextButton, 'Select none'), findsOneWidget);
+    });
+
+    testWidgets('evenly split shows a live per-participant \$ preview once the amount is entered',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await pumpScreen(tester, db);
+
+      await fillCommonFields(tester, amount: '90');
+      await tester.pumpAndSettle();
+
+      // \$90 evenly among 3 participants -> \$30.00 each.
+      expect(find.text('\$30.00'), findsNWidgets(3));
+    });
+
+    testWidgets('percent mode footer shows "still to allocate" before percentages sum to 100',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await pumpScreen(tester, db);
+
+      await fillCommonFields(tester, amount: '90');
+      await selectSplitMode(tester, 'Percent');
+
+      final splitFields = find.byType(TextFormField);
+      // Switching filled in 33.34 / 33.33 / 33.33 (#260).
+      await tester.enterText(splitFields.at(2), '20');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('13.34% still to allocate'), findsOneWidget);
+      // Nothing was submitted yet -- this is the live hint, not the
+      // Save-attempt blocking error.
+      expect(find.textContaining('currently'), findsNothing);
+    });
+
+    testWidgets('a successful save with "Save as default split" checked is applied to the next '
+        'new expense in the same group', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await pumpScreen(tester, db);
+
+      await fillCommonFields(tester, amount: '90');
+      await selectSplitMode(tester, 'Shares');
+
+      final splitFields = find.byType(TextFormField);
+      await tester.enterText(splitFields.at(2), '2'); // alex
+      await tester.enterText(splitFields.at(3), '1'); // bea
+      await tester.enterText(splitFields.at(4), '1'); // cid
+
+      await tester.ensureVisible(find.widgetWithText(GroupedRow, 'Save as default split'));
+      await tester.tap(find.widgetWithText(GroupedRow, 'Save as default split'));
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(await db.defaultSplitFor('g1'), isNotNull);
+
+      // Fully tear down the first screen's widget tree (and its
+      // now-history-less Navigator) before pumping a second MaterialApp
+      // -- otherwise Flutter's element reconciliation reuses the
+      // existing Navigator element instead of creating a fresh one, and
+      // rebuilding it after its only route was just popped crashes.
+      await tester.pumpWidget(const SizedBox());
+
+      // Re-open the screen for a brand-new expense in the same group.
+      await pumpScreen(tester, db);
+
+      final segmented = tester.widget<SegmentedPill<SplitMode>>(find.byType(SegmentedPill<SplitMode>));
+      expect(segmented.selected, SplitMode.byShares);
+      final reopenedFields = find.byType(TextFormField);
+      expect(tester.widget<TextFormField>(reopenedFields.at(2)).controller!.text, '2');
+      expect(tester.widget<TextFormField>(reopenedFields.at(3)).controller!.text, '1');
+      expect(tester.widget<TextFormField>(reopenedFields.at(4)).controller!.text, '1');
+    });
+
+  // issue #33: the per-participant split value field should be
+  // right-aligned in every non-evenly mode.
+  testWidgets('the per-participant split value field is right-aligned', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Shares');
+
+    // TextFormField doesn't expose textAlign as a public field itself --
+    // it's forwarded into the TextField it builds internally, so check
+    // that descendant instead.
+    final textField = tester.widget<TextField>(find.descendant(
+      of: find.byType(TextFormField).at(2),
+      matching: find.byType(TextField),
+    ));
+    expect(textField.textAlign, TextAlign.end);
+  });
+
+  // issue #34: Shares and Percentage should both accept a decimal point,
+  // not just whole numbers -- and (see _buildPaidFor's doc comment) the
+  // wire value is the typed decimal x100, the same transform
+  // spliit-web's own form applies, so decimal precision survives the trip.
+  testWidgets('by-shares split accepts a decimal number of shares', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Shares');
+
+    final splitFields = find.byType(TextFormField);
+    await tester.enterText(splitFields.at(2), '1.5'); // alex
+    await tester.enterText(splitFields.at(3), '1'); // bea
+    await tester.enterText(splitFields.at(4), '1'); // cid
+
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpenses();
+    expect(pending, hasLength(1));
+    final expense = db.rowToExpense(pending.single);
+    final byId = {for (final s in expense.paidFor) s.participantId: s.shares};
+    // 1.5 x100 = 150 -- the same x100 scale Percentage already used, now
+    // applied to Shares too so a fractional value survives on the wire.
+    expect(byId, {'alex': 150, 'bea': 100, 'cid': 100});
+  });
+
+  testWidgets('by-percentage split accepts decimal percentages that sum to exactly 100',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Percent');
+
+    final splitFields = find.byType(TextFormField);
+    await tester.enterText(splitFields.at(2), '33.3');
+    await tester.enterText(splitFields.at(3), '33.3');
+    await tester.enterText(splitFields.at(4), '33.4'); // 33.3+33.3+33.4 = 100.0 exactly
+
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    final pending = await db.pendingExpenses();
+    expect(pending, hasLength(1));
+    final expense = db.rowToExpense(pending.single);
+    final byId = {for (final s in expense.paidFor) s.participantId: s.shares};
+    // Basis points: 3330 + 3330 + 3340 = 10000 exactly.
+    expect(byId, {'alex': 3330, 'bea': 3330, 'cid': 3340});
+  });
+
+  testWidgets('by-percentage footer reports a fractional "still to allocate" amount',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Percent');
+
+    final splitFields = find.byType(TextFormField);
+    await tester.enterText(splitFields.at(2), '33.3');
+    await tester.pumpAndSettle();
+
+    // 100 - (33.3 + 33.33 + 33.33, what switching filled in for the
+    // other two, #260) = 0.04
+    expect(find.textContaining('0.04% still to allocate'), findsOneWidget);
+  });
+
+  // issue #36: switching to Evenly removes every per-participant number
+  // field from the tree. If one of them had focus, Flutter needs
+  // somewhere to send it -- left to its own traversal heuristics, it
+  // jumped back to a field like Amount or Title, auto-scrolling the form
+  // back up to show it. Unfocusing before the mode switch means nothing
+  // is focused afterward, so there's nothing to scroll to.
+  // Regression coverage for issue #28: the category field and its picker
+  // should each show the category's icon, matching how currency_picker.dart
+  // already shows the currency's flag on its own rows.
+  testWidgets('the category field shows a category icon', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    // No live categories.list in this offline test setup, so the field
+    // starts on the built-in General fallback -- still enough to prove
+    // an icon renders next to it at all.
+    expect(find.byType(CategoryIconGlyph), findsOneWidget);
+  });
+
+  testWidgets('each row in the category picker shows its own icon', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await tester.runAsync(() => db.replaceCategories('https://example.test', const [
+          Category(id: 0, name: 'General', grouping: 'Uncategorized'),
+          Category(id: 9, name: 'Groceries', grouping: 'Food and Drink'),
+        ]));
+    await pumpScreen(tester, db);
+
+    await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
+    await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+    await tester.pumpAndSettle();
+
+    // The field's own icon, plus one per visible row in the picker.
+    expect(find.byType(CategoryIconGlyph), findsAtLeastNWidgets(3));
+  });
+
+  testWidgets(
+      'switching to Evenly while a "Paid for" field has focus clears focus '
+      'instead of jumping elsewhere', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await pumpScreen(tester, db);
+
+    await fillCommonFields(tester, amount: '90');
+    await selectSplitMode(tester, 'Shares');
+
+    final sharesField = find.byType(TextFormField).at(2);
+    await tester.ensureVisible(sharesField);
+    await tester.tap(sharesField);
+    await tester.pumpAndSettle();
+    // A field being focused means it's connected to the platform text
+    // input system -- the standard way widget tests observe focus.
+    expect(tester.testTextInput.hasAnyClients, isTrue, reason: 'field should be focused');
+
+    await selectSplitMode(tester, 'Evenly');
+
+    // Nothing should have picked up focus in its place -- not the field
+    // itself (it's gone), and not Title/Amount either (the actual
+    // symptom reported in issue #36).
+    expect(tester.testTextInput.hasAnyClients, isFalse);
+  });
+
+  // Issue #92: saves credit the group's active user in Spliit's activity
+  // log -- captured on the pending row for an add, sent directly for an
+  // edit.
+  Future<void> addExpense(WidgetTester tester, AppDatabase db,
+      {required String? activeParticipant}) async {
+    await pumpScreen(tester, db);
+    await db.setActiveParticipant('g1', activeParticipant);
+    await fillCommonFields(tester, amount: '90');
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+      'activity attribution (#92): an added expense captures the active user',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await addExpense(tester, db, activeParticipant: 'bea');
+    expect((await db.pendingExpenses()).single.addedByParticipantId, 'bea');
+  });
+
+  testWidgets(
+      'activity attribution (#92): "Nobody" is never captured as a participant',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await addExpense(tester, db, activeParticipant: nobodyParticipantId);
+    expect((await db.pendingExpenses()).single.addedByParticipantId, isNull);
+  });
+
+  testWidgets('activity attribution (#92): an edit credits the active user',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.cacheGroup(group);
+    await db.setActiveParticipant('g1', 'cid');
+    http.Request? captured;
+    final client = SpliitClient(
+      baseUrl: 'https://example.test',
+      httpClient: MockClient((req) async {
+        // Only the update is served; the categories fail as if offline and
+        // the form falls back to General (#132).
+        if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
+        captured = req;
+        return http.Response(
+            '[{"result":{"data":{"json":{"expenseId":"e1"}}}}]', 200);
+      }),
+    );
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ExpenseScreen(
+        client: client,
+        db: db,
+        outbox: Outbox(db, client, groupId: 'g1'),
+        group: group,
+        existingExpense: Expense(
+          id: 'e1',
+          groupId: 'g1',
+          title: 'Groceries',
+          amountCents: 9000,
+          paidBy: 'bea',
+          paidFor: const [
+            ExpenseShare(participantId: 'alex', shares: 1),
+            ExpenseShare(participantId: 'bea', shares: 1),
+          ],
+          date: DateTime.utc(2026, 9, 10),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    expect(captured, isNotNull);
+    expect(captured!.url.toString(), contains('groups.expenses.update'));
+    final sent = jsonDecode(captured!.body) as Map<String, dynamic>;
+    // Cloud attributes the edit from the session cookie, not from a
+    // participantId in the body.
+    expect(sent['0']['json']['expenseId'], 'e1');
+    expect(sent['0']['json']['expectedVersion'], 1);
+    expect(sent['0']['json']['expense']['title'], 'Groceries');
+    // Issue #90: a refresh fetched before this edit won't write the old
+    // copy back over it.
+    expect(db.expensesGeneration('g1'), 1);
+  });
+
+  // #119 review: a new expense's local database write failing used to
+  // leave the form stuck on "Saving…" with nothing shown.
+  testWidgets('a database failure while adding is shown, logged, with details, and Save works again',
+      (tester) async {
+    final db = _FailingInsertDb();
+    addTearDown(db.close);
+    expectUnexpectedError<StateError>('Adding an expense to g1');
+    await pumpScreen(tester, db);
+    await fillCommonFields(tester, amount: '30');
+
+    // From the bottom of the form: the error shows at the top (#259).
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't save this expense.").hitTestable(), findsOneWidget);
+    expect(find.text('Tap for details'), findsOneWidget);
+    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.check)).onPressed,
+        isNotNull);
+    expect(loggedUnexpectedErrors.where((e) => '${e.error}'.contains('disk I/O error')), hasLength(1));
+  });
+
+  // #119 review (Ezra, Kenneth): once the expense is saved, failing to
+  // remember its split as the default mustn't fail the save. Retrying
+  // would add the expense twice, so the form closes with a note.
+    /// Opens the form from a stub home, so its close can be seen.
+    Future<List<bool?>> openFrom(WidgetTester tester, AppDatabase db,
+        {SpliitClient? client, Expense? existing}) async {
+      client ??= SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+      );
+      await db.cacheGroup(group);
+      final popped = <bool?>[];
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                popped.add(await Navigator.of(context).push<bool>(MaterialPageRoute(
+                  builder: (_) => ExpenseScreen(
+                    client: client!,
+                    db: db,
+                    outbox: Outbox(db, client, groupId: 'g1'),
+                    group: group,
+                    existingExpense: existing,
+                  ),
+                )));
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      return popped;
+    }
+
+    Future<void> checkDefaultAndSave(WidgetTester tester) async {
+      final checkbox = find.widgetWithText(GroupedRow, 'Save as default split');
+      await tester.ensureVisible(checkbox);
+      await tester.tap(checkbox);
+      final save = find.byTooltip('Save');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+    }
+
+    const note = "The expense was saved, but its split couldn't be saved as the default.";
+
+    testWidgets('default split fails after adding: saved once, the form closes, and the note has Details', (tester) async {
+      final db = _FailingDefaultSplitDb();
+      addTearDown(db.close);
+      expectUnexpectedError<StateError>('Saving the default split for g1');
+      final popped = await openFrom(tester, db);
+      await fillCommonFields(tester, amount: '30');
+      await checkDefaultAndSave(tester);
+
+      expect(popped, [true]);
+      expect(find.byType(ExpenseScreen), findsNothing);
+      expect(await tester.runAsync(() => db.expensesForGroup('g1')), hasLength(1));
+      expect(await tester.runAsync(() => db.defaultSplitFor('g1')), isNull);
+      expect(find.text(note), findsOneWidget);
+      expect(loggedUnexpectedErrors.where((e) => '${e.error}'.contains('disk I/O error')), hasLength(1));
+
+      // Details still opens after the form that showed the note closed.
+      await tester.tap(find.text('Details'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Saving the default split for g1 failed.'), findsOneWidget);
+    });
+
+    testWidgets('default split fails after editing: the form closes after the one update, with the note', (tester) async {
+      final db = _FailingDefaultSplitDb();
+      addTearDown(db.close);
+      var updates = 0;
+      final client = SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async {
+          if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
+          updates++;
+          return http.Response('[{"result":{"data":{"json":{"expenseId":"e1"}}}}]', 200);
+        }),
+      );
+      expectUnexpectedError<StateError>('Saving the default split for g1');
+      final popped = await openFrom(tester, db,
+          client: client,
+          existing: Expense(
+            id: 'e1',
+            groupId: 'g1',
+            title: 'Groceries',
+            amountCents: 9000,
+            paidBy: 'bea',
+            paidFor: const [
+              ExpenseShare(participantId: 'alex', shares: 1),
+              ExpenseShare(participantId: 'bea', shares: 1),
+            ],
+            date: DateTime.utc(2026, 9, 10),
+          ));
+      await checkDefaultAndSave(tester);
+
+      expect(popped, [true]);
+      expect(updates, 1);
+      expect(find.text(note), findsOneWidget);
+    });
+}
+
+/// A database whose pending-expense write fails, as a full disk would.
+class _FailingInsertDb extends AppDatabase {
+  _FailingInsertDb() : super(NativeDatabase.memory());
+
+  @override
+  Future<void> insertPending(Expense e,
+          {String? addedByParticipantId, List<ReceiptAttachmentsCompanion> attachments = const []}) =>
+      Future.error(StateError('disk I/O error'));
+}
+
+/// The expense saves; remembering its split as the default doesn't.
+class _FailingDefaultSplitDb extends AppDatabase {
+  _FailingDefaultSplitDb() : super(NativeDatabase.memory());
+
+  @override
+  Future<void> setDefaultSplit(String groupId, DefaultSplit? split) =>
+      Future.error(StateError('disk I/O error'));
+}
+
+/// Rates without Frankfurter (#252): JPY → EUR at 0.0061 unless told
+/// otherwise, counting lookups.
+class _FakeRates extends ExchangeRates {
+  _FakeRates(super.db, {Future<ExchangeRate> Function(DateTime, String, String)? answer})
+      : answer = answer ?? ((_, __, ___) async => published(0.0061));
+
+  Future<ExchangeRate> Function(DateTime date, String from, String to) answer;
+  int lookups = 0;
+  int forced = 0;
+
+  static ExchangeRate published(double rate, {bool offline = false, DateTime? on}) =>
+      ExchangeRate(rate: rate, publishedOn: on ?? DateTime.utc(2026, 10, 1), source: RateSource.ecb, offline: offline);
+
+  @override
+  Future<ExchangeRate> rate(DateTime date, String from, String to, {bool force = false}) {
+    lookups++;
+    if (force) forced++;
+    return answer(date, from, to);
+  }
+}
+
+/// Reads a pair's order only when [read] completes (#270 review).
+class _SlowRateBase extends SettingsService {
+  _SlowRateBase(this.read);
+
+  final Future<String?> read;
+  String? saved;
+
+  @override
+  Future<String?> rateBase(String a, String b) => read;
+
+  @override
+  Future<void> setRateBase(String a, String b, String first) async => saved = first;
+}
