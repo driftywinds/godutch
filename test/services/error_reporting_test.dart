@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/services/error_reporting.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/services/error_reporting.dart';
 
 // Issue #119 review: one policy for every error. User errors and expected
 // connection failures get guidance only; everything else is unexpected,

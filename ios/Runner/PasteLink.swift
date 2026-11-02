@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 enum PasteLink {
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
-      name: "com.sharneng.spliit2go/paste_link", binaryMessenger: registrar.messenger())
+      name: "com.dwprod.godutch/paste_link", binaryMessenger: registrar.messenger())
     channel.setMethodCallHandler { call, result in
       guard call.method == "probablyHasLink" else { return result(FlutterMethodNotImplemented) }
       let pasteboard = UIPasteboard.general
@@ -23,7 +23,7 @@ enum PasteLink {
     }
     registrar.register(
       PasteButtonFactory(messenger: registrar.messenger()),
-      withId: "com.sharneng.spliit2go/paste_button")
+      withId: "com.dwprod.godutch/paste_button")
   }
 }
 
@@ -38,7 +38,7 @@ private class PasteButtonFactory: NSObject, FlutterPlatformViewFactory {
     -> FlutterPlatformView
   {
     let channel = FlutterMethodChannel(
-      name: "com.sharneng.spliit2go/paste_button_\(viewId)", binaryMessenger: messenger)
+      name: "com.dwprod.godutch/paste_button_\(viewId)", binaryMessenger: messenger)
     return PasteButton(frame: frame, channel: channel, colors: args as? [String: Any] ?? [:])
   }
 

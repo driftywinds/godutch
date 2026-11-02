@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
 
 // Issue #123: what the cache knows about an expense's receipts, and when
 // it stops knowing it.

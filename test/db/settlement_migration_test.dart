@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
 
 // #242: schema 18 renames expenses.is_reimbursement to is_settlement,
 // keeping the flag on cached and pending settlements alike.

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/services/app_settings.dart';
-import 'package:spliit2go/services/settings_service.dart';
+import 'package:godutch/services/app_settings.dart';
+import 'package:godutch/services/settings_service.dart';
 
 class _FailingLocaleSave extends SettingsService {
   @override

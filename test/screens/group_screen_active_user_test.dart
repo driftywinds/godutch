@@ -4,19 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/group_screen.dart';
-import 'package:spliit2go/services/active_user.dart';
-import 'package:spliit2go/services/settings_service.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/active_user_sheet.dart';
-import 'package:spliit2go/widgets/participant_colors.dart';
-import 'package:spliit2go/widgets/group_monogram.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/group_screen.dart';
+import 'package:godutch/services/active_user.dart';
+import 'package:godutch/services/settings_service.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/active_user_sheet.dart';
+import 'package:godutch/widgets/participant_colors.dart';
+import 'package:godutch/widgets/group_monogram.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 // The one-time "Who are you?" prompt (issue #85), a sheet since #218.
 void main() {
@@ -308,7 +308,7 @@ void main() {
       Participant(id: 'bea', name: 'Bea Chan'),
     ];
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme,
+      theme: goDutchLightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const Scaffold(
@@ -327,7 +327,7 @@ void main() {
 
     final check = tester.getRect(find.byIcon(Icons.check));
     expect(check.center.dy, closeTo(tester.getCenter(find.text('Bea Chan')).dy, 1));
-    expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, spliit2goLightTheme.colorScheme.primary);
+    expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, goDutchLightTheme.colorScheme.primary);
 
     final handle = tester.ensureSemantics();
     expect(tester.getSemantics(find.text('Bea Chan')),

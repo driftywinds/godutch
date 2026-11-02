@@ -5,19 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/widgets/category_icon.dart';
-import 'package:spliit2go/widgets/group_monogram.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/main.dart' show spliit2goAppBuilder;
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/stats_screen.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/widgets/money.dart';
+import 'package:godutch/widgets/category_icon.dart';
+import 'package:godutch/widgets/group_monogram.dart';
+import 'package:godutch/widgets/grouped_section.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/main.dart' show goDutchAppBuilder;
+import 'package:godutch/models/category.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/stats_screen.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/widgets/money.dart';
 
 // Flat testWidgets calls, not group() -- `group` is also the fixture
 // constant name below (see activity_screen_test.dart for the same note).
@@ -327,7 +327,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       await db.replaceServerExpenses('g1', [expense('e1', 1307155)]);
-      await pumpStats(tester, db, locale: locale, builder: spliit2goAppBuilder);
+      await pumpStats(tester, db, locale: locale, builder: goDutchAppBuilder);
 
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

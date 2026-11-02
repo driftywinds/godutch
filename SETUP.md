@@ -3,8 +3,8 @@
 ## 1. Clone
 
 ```
-git clone <your-fork-url> spliitcloud2go
-cd spliitcloud2go
+git clone https://github.com/driftywinds/godutch.git
+cd godutch
 ```
 
 Both platform folders, `android/` and `ios/`, are committed.
@@ -49,7 +49,7 @@ There's no server to configure in code. The app defaults to the public Spliit Cl
 
 Create an anonymous account (a name, no email) or sign in with an email account. Cloud asks every anonymous account to save a recovery link before its groups become available, so onboarding shows that link once; keep it safe.
 
-This runs the **dev** app, Spliit2Go Dev (see App identity below). It installs beside the real app instead of replacing it, but it edits the same groups on the server, so test with a test group of your own, not a real one.
+This runs the **dev** app, Go Dutch Dev (see App identity below). It installs beside the real app instead of replacing it, but it edits the same groups on the server, so test with a test group of your own, not a real one.
 
 ## App identity
 
@@ -57,8 +57,8 @@ There are two apps, as build flavors (#219, [docs/decisions/app-flavors.md](docs
 
 | Flavor | App id, Android and iOS | Name |
 |---|---|---|
-| `dev`, the default | `com.sharneng.spliit2go.dev` | **Spliit2Go Dev** |
-| `prod` | `com.sharneng.spliit2go` | **Spliit2Go** |
+| `dev`, the default | `com.dwprod.godutch.dev` | **Go Dutch Dev** |
+| `prod` | `com.dwprod.godutch` | **Go Dutch** |
 
 Plain `flutter run` and `flutter build`, in any build mode, make the dev app (`default-flavor` in `pubspec.yaml`), so it installs beside the store version on the same phone, with its own data. `prod` is the real app: the store uploads and any APK given to people. Build it by adding `--flavor prod`, or in Xcode with the `prod` scheme. Each app keeps its own local data (groups joined, cached expenses and receipts, settings), so the dev app starts empty.
 
@@ -66,17 +66,17 @@ The version comes from `pubspec.yaml` (`1.0.0+300` is version 1.0.0, build 300; 
 
 Every Android and iOS build also records the commit it was built from, and About shows it after the build number: `Version 1.0.0 (300 · a1b2c3d)`, with the minute of the week it was built, e.g. `a1b2c3d-4821`, when tracked files had uncommitted changes (#176). The copy button next to it copies the version with the full hash, for bug reports. Gradle (`android/app/build.gradle.kts`) and an Xcode build phase (`ios/scripts/write_build_info.sh`) run `git` themselves, so plain `flutter run` and `flutter build`, an IDE, or an archive from Xcode all include it. Without git (a source download, or no `git` on PATH), the build warns and About shows `unknown`. The commit comes from the last Android or iOS build, so a hot reload or hot restart keeps the old one. The stores don't see it: they get `1.0.0 (300)`. Details are in [docs/decisions/build-info.md](docs/decisions/build-info.md).
 
-The prod id is permanent once the app is published. Before #105 the id was `com.sharneng.spliit2go.spliit2go`: a build from before then is a different app to the phone, so it installs alongside the new one with its own data. Uninstall it, or re-join your groups in the new one.
+The prod id is permanent once the app is published. Go Dutch uses `com.dwprod.godutch`, a new id: builds of the original `spliit2go` (`com.sharneng.spliit2go`) are a different app to the phone, so they install alongside Go Dutch with their own data. Uninstall the old app, or re-join your groups in Go Dutch.
 
 ### App icon
 
-The icon and the group list's header logo come from the art in `branding/` (#106): `spliit2go-logo.png`, the logo on a transparent background, is the source for all of them, `BACKGROUND` in the script is the teal of `spliit2go-icon.png` (`#A2E0D5`, the same logo on its background), and the icons and the header logo sit on lighter versions of it: `ICON_BACKGROUND` (`#D0F0EA`, half way to white) and `HEADER_BACKGROUND` (`#B9E8E0`, a quarter of the way). To change the icon, replace those and run:
+The art is in `assets/godutch/`: `app-icon.svg` is the app icon on its pale mint background, and `transparent-icon.svg` is the same scissors-and-banknote mark with no background, used for the group list header, About and empty states. `app-icon.png` and `transparent-icon.png` are 1024 px renders of those SVGs; the script reads the PNGs (Pillow can't read SVG), so re-render them if the art changes. To rebuild every icon size:
 
 ```
 python3 scripts/make_icons.py
 ```
 
-It needs Pillow (`pip install pillow`) and rewrites every size: iOS's `AppIcon.appiconset`, Android's launcher icons and the adaptive icon's three layers (background color, foreground, and the monochrome layer for Android 13+ themed icons), the 32 pt header logo in `assets/`, and the store icons in `branding/store/` (1024 for App Store Connect, 512 for Google Play). Commit what it writes. `branding/` isn't bundled with the app.
+It needs Pillow (`pip install pillow`) and rewrites every size: iOS's `AppIcon.appiconset`, Android's rounded launcher icon and its round variant, the adaptive icon's three layers (background color, foreground, and the monochrome layer for Android 13+ themed icons), the transparent in-app logo in `assets/godutch/` (48, 96 and 144 px), and the store icons in `branding/store/` (1024 for App Store Connect, 512 for Google Play). Commit what it writes.
 
 The store listings' screenshots, feature graphic and text are in `branding/store/` too (#112); its README says how the screenshots were taken. After new raw captures or caption changes, rebuild the framed images with `python3 scripts/make_store_assets.py` (also Pillow).
 
@@ -87,13 +87,13 @@ Google Play takes an app bundle (`.aab`) signed with an **upload key** (#107). W
 Create the keystore once, outside the repo (`keytool` comes with Android Studio's JDK, in `Contents/jbr/Contents/Home/bin`):
 
 ```
-keytool -genkeypair -v -keystore ~/keys/spliit2go-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+keytool -genkeypair -v -keystore ~/keys/godutch-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 ```
 
 Then point the build at it in `android/key.properties`:
 
 ```
-storeFile=/Users/<you>/keys/spliit2go-upload.jks
+storeFile=/Users/<you>/keys/godutch-upload.jks
 storePassword=<the keystore password>
 keyAlias=upload
 keyPassword=<the key password; the same one unless you set another>
@@ -132,17 +132,17 @@ Add these repository secrets (Settings → Secrets and variables → Actions):
 
 The workflow writes a temporary `android/upload-keystore.jks` and `android/key.properties`, builds, then removes both.
 
-- **Release a tag:** push `v1.0.2`; the workflow builds that tag, sets the APK version name to `1.0.2`, and publishes a release named `Spliit2Go 1.0.2` with the APKs and `SHA256SUMS`.
+- **Release a tag:** push `v1.0.2`; the workflow builds that tag, sets the APK version name to `1.0.2`, and publishes a release named `Go Dutch 1.0.2` with the APKs and `SHA256SUMS`.
 - **Build only:** run the workflow by hand with an empty **tag**; the APKs are available under the run's artifacts but no release is created.
 - **Publish an existing tag:** run by hand with its tag in **tag**.
 - **Version code:** defaults to `1000 + run number`, above the historical pubspec builds, so a CI APK is an upgrade over an older sideload. Override it with **build_number** when needed.
 - **Draft/prerelease:** the manual inputs mark the GitHub release accordingly.
 
-The APKs are the prod app (`com.sharneng.spliit2go`), signed with the upload key. They are not Play bundles; build an `.aab` locally or add a separate bundle job when uploading to Play.
+The APKs are the prod app (`com.dwprod.godutch`), signed with the upload key. They are not Play bundles; build an `.aab` locally or add a separate bundle job when uploading to Play.
 
 ## iOS
 
-The iOS project (`ios/`, added in #79) needs Xcode. It uses the same bundle ids as Android, `com.sharneng.spliit2go.dev` for dev and `com.sharneng.spliit2go` for prod (see App identity above), with a `dev` and a `prod` scheme and Debug, Release and Profile configurations for each (`Debug-dev`, `Release-prod`, and so on). It targets iOS 16 or later, and is iPhone only (#105). Plugins are integrated with Swift Package Manager, so there's no `Podfile` and no `pod install` step. Receipt scanning uses Apple's VisionKit and Vision on the iPhone (#155, `ios/Runner/ReceiptScanChannel.swift`) and ML Kit on Android (#125, `ReceiptScanChannel.kt`), each called from the app rather than through pub.dev plugins, which would bring CocoaPods back. To run it on a simulator:
+The iOS project (`ios/`, added in #79) needs Xcode. It uses the same bundle ids as Android, `com.dwprod.godutch.dev` for dev and `com.dwprod.godutch` for prod (see App identity above), with a `dev` and a `prod` scheme and Debug, Release and Profile configurations for each (`Debug-dev`, `Release-prod`, and so on). It targets iOS 16 or later, and is iPhone only (#105). Plugins are integrated with Swift Package Manager, so there's no `Podfile` and no `pod install` step. Receipt scanning uses Apple's VisionKit and Vision on the iPhone (#155, `ios/Runner/ReceiptScanChannel.swift`) and ML Kit on Android (#125, `ReceiptScanChannel.kt`), each called from the app rather than through pub.dev plugins, which would bring CocoaPods back. To run it on a simulator:
 
 ```
 open -a Simulator
@@ -156,7 +156,7 @@ Don't re-run `flutter create` on this repo. If you ever do, don't commit the `pu
 App Store Connect takes an archive signed by the Apple Developer team (#108). Signing is automatic: Xcode makes and renews the certificate and provisioning profile once a team is set.
 
 1. In Xcode (`open ios/Runner.xcworkspace`), signed in with the developer account under Settings → Accounts, select the Runner target → Signing & Capabilities → Team. This writes `DEVELOPMENT_TEAM` (the team's 10-character id, which isn't secret) into `ios/Runner.xcodeproj/project.pbxproj`; commit it.
-2. Create the app in App Store Connect with bundle id `com.sharneng.spliit2go` (#150).
+2. Create the app in App Store Connect with bundle id `com.dwprod.godutch` (#150).
 3. Raise the build number in `pubspec.yaml` (see App identity above), then build:
 
 ```
@@ -210,21 +210,21 @@ The links aren't verified, and the manifest doesn't ask Android to try
 (no `android:autoVerify`). Verification needs the **spliit.cloud domain
 owner** to serve `https://spliit.cloud/.well-known/assetlinks.json` with the
 `delegate_permission/common.handle_all_urls` relation, this app's package name
-(`com.sharneng.spliit2go`, or `.dev` for the dev app), and the SHA-256
+(`com.dwprod.godutch`, or `.dev` for the dev app), and the SHA-256
 fingerprint of the signing certificate. This repository can't configure that
 domain, so on Android 12 and later a spliit.cloud link opens in the browser
-until the user turns it on once: Settings → Apps → Spliit2Go → Open by default
+until the user turns it on once: Settings → Apps → Go Dutch → Open by default
 → Add link → spliit.cloud. Android 11 and earlier ask which app to use instead.
 Store listings shouldn't promise that links open the app.
 
 Both the dev and the prod app handle the links. For everyday use turn Open by
-default on for **Spliit2Go** only. To test from the command line (the prod app;
+default on for **Go Dutch** only. To test from the command line (the prod app;
 add `.dev` to both package names for the dev one):
 
 ```sh
-adb shell pm set-app-links-user-selection --user 0 --package com.sharneng.spliit2go true spliit.cloud
-adb shell pm get-app-links --user 0 com.sharneng.spliit2go
-adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'https://spliit.cloud/groups/GROUP_ID?invite=TOKEN' com.sharneng.spliit2go
+adb shell pm set-app-links-user-selection --user 0 --package com.dwprod.godutch true spliit.cloud
+adb shell pm get-app-links --user 0 com.dwprod.godutch
+adb shell am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d 'https://spliit.cloud/groups/GROUP_ID?invite=TOKEN' com.dwprod.godutch
 ```
 
 Also test a signed-out invite (the link waits until sign-in), a revoked or

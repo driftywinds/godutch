@@ -7,16 +7,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_form/currency_card.dart';
-import 'package:spliit2go/screens/expense_screen.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/utils/markdown_note.dart';
-import 'package:spliit2go/widgets/app_switch.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_form/currency_card.dart';
+import 'package:godutch/screens/expense_screen.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/utils/markdown_note.dart';
+import 'package:godutch/widgets/app_switch.dart';
 
 // Issue #311: the form's Markdown switch saves the notes behind the marker,
 // which the field never shows, and adds Edit and Preview.

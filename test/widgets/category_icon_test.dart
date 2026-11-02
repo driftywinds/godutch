@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/widgets/category_icon.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/widgets/category_icon.dart';
 
 void main() {
   group('categoryIconData', () {

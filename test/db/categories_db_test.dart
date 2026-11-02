@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/category.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/category.dart';
 
 // Issue #132: each server's category list, kept offline.
 void main() {

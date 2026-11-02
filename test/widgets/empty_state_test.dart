@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/empty_state.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/empty_state.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, Widget body, {double textScale = 1}) async {
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme,
+      theme: goDutchLightTheme,
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
         child: Scaffold(body: body),
@@ -22,7 +22,7 @@ void main() {
         find.ancestor(of: find.byIcon(Icons.history), matching: find.byType(Container)).first);
     expect((tile.decoration! as BoxDecoration).color, SpliitColors.light.brandAccentSoft);
     expect(tester.widget<Icon>(find.byIcon(Icons.history)).color,
-        spliit2goLightTheme.colorScheme.primary);
+        goDutchLightTheme.colorScheme.primary);
     expect(find.text('No activity'), findsOneWidget);
     expect(find.text('Why'), findsOneWidget);
   });

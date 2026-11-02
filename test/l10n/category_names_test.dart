@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/l10n/category_names.dart';
-import 'package:spliit2go/models/category.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/l10n/category_names.dart';
+import 'package:godutch/models/category.dart';
 
 import '../fixtures/category_seed_ids.dart';
 

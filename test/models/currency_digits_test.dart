@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/currency.dart';
-import 'package:spliit2go/models/group.dart';
+import 'package:godutch/models/currency.dart';
+import 'package:godutch/models/group.dart';
 
 // #251: each currency's decimal places, from spliit-web's
 // src/lib/currency-data.json (`decimal_digits`).

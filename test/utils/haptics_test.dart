@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/utils/haptics.dart';
+import 'package:godutch/utils/haptics.dart';
 
 import '../support/haptics.dart';
 

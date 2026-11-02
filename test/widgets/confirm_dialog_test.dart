@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart' show CupertinoAlertDialog, CupertinoDialogAction;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/widgets/confirm_dialog.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/widgets/confirm_dialog.dart';
 
 // #276: every alert in the app, in the style settled on for #272's.
 void main() {

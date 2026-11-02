@@ -97,7 +97,7 @@ class EmptyState extends StatelessWidget {
   Widget _art(BuildContext context) {
     if (logo) {
       return const ExcludeSemantics(
-        child: Image(image: AssetImage('assets/spliit2go-logo.png'), height: 60),
+        child: Image(image: AssetImage('assets/godutch/transparent-logo.png'), height: 60),
       );
     }
     return ExcludeSemantics(

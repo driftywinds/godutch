@@ -1,4 +1,4 @@
-# spliit2go: the dev and prod apps (issue #219)
+# Go Dutch: the dev and prod apps (issue #219)
 
 **Status: implemented** in the PR closing [#219](https://github.com/sharneng/spliit2go/issues/219), 2026-10-07. This is the design agreed on the issue, combining Juno's and Ezra's proposals with Kenneth's choices.
 
@@ -10,8 +10,8 @@ Once the store version was installed on the team's phones, every development bui
 
    | | `dev` (default) | `prod` |
    |---|---|---|
-   | App id, Android and iOS | `com.sharneng.spliit2go.dev` | `com.sharneng.spliit2go` |
-   | Name under the icon | Spliit2Go Dev | Spliit2Go |
+   | App id, Android and iOS | `com.dwprod.godutch.dev` | `com.dwprod.godutch` |
+   | Name under the icon | Go Dutch Dev | Go Dutch |
 
    - `flutter: default-flavor: dev` in `pubspec.yaml` sets the default. Plain `flutter run` and `flutter build`, IDEs and the `dev` scheme in Xcode all make the dev app, in any build mode.
    - Flavor and build mode are separate choices: a release-mode dev app can be tested on a phone without replacing the installed store app. That matters because some bugs only show in release builds (#125's ML Kit crash).
@@ -19,7 +19,7 @@ Once the store version was installed on the team's phones, every development bui
    - The dev app has no separate icon: Kenneth found the name enough.
 2. **Android:** `dev` and `prod` product flavors in `android/app/build.gradle.kts`.
    - `dev` adds `.dev` to the app id, and each flavor sets `app_name`, which the manifest's label uses.
-   - The Kotlin `namespace` and the method channel names (`com.sharneng.spliit2go/...`) are unchanged: they're code names, not the app id.
+   - The Kotlin `namespace` and the method channel names (`com.dwprod.godutch/...`) match the new app id.
 3. **iOS:** one Runner target, with shared `dev` and `prod` schemes and `Debug-`, `Release-` and `Profile-` configurations for each.
    - Each configuration sets `PRODUCT_BUNDLE_IDENTIFIER` and `APP_DISPLAY_NAME`, which `Info.plist` uses for both of its names.
    - The old `Runner` scheme is gone, since Flutter builds a flavor's scheme.

@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/cloud_connection.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/services/device_time_zone.dart';
+import 'package:godutch/api/cloud_connection.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/services/device_time_zone.dart';
 
 /// A cloud client backed by [handler], with its own in-memory session.
 SpliitClient cloudClient(Future<http.Response> Function(http.Request) handler) {

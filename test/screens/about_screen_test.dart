@@ -6,26 +6,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/app_name.dart';
-import 'package:spliit2go/legal/upstream_licenses.dart';
-import 'package:spliit2go/main.dart';
-import 'package:spliit2go/screens/about_screen.dart';
-import 'package:spliit2go/screens/app_settings_screen.dart';
-import 'package:spliit2go/services/build_info.dart';
-import 'package:spliit2go/services/app_settings.dart';
-import 'package:spliit2go/services/settings_service.dart';
+import 'package:godutch/app_name.dart';
+import 'package:godutch/legal/upstream_licenses.dart';
+import 'package:godutch/main.dart';
+import 'package:godutch/screens/about_screen.dart';
+import 'package:godutch/screens/app_settings_screen.dart';
+import 'package:godutch/services/build_info.dart';
+import 'package:godutch/services/app_settings.dart';
+import 'package:godutch/services/settings_service.dart';
 
 // #109: the About screen, its "unofficial client" notice, its links, and
-// Spliit's and spliit-ios's notices on the licenses page.
+// spliit2go's, Spliit's and spliit-ios's notices on the licenses page.
 void main() {
   setUp(() {
     // The real loader, through App settings: a build without a commit.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-        const MethodChannel('com.sharneng.spliit2go/build_info'), (call) async => '');
+        const MethodChannel('com.dwprod.godutch/build_info'), (call) async => '');
     SharedPreferences.setMockInitialValues({});
     PackageInfo.setMockInitialValues(
-      appName: 'Spliit2Go',
-      packageName: 'com.sharneng.spliit2go',
+      appName: 'Go Dutch',
+      packageName: 'com.dwprod.godutch',
       version: '1.2.3',
       buildNumber: '45',
       buildSignature: '',
@@ -37,7 +37,7 @@ void main() {
     final settings = await AppSettings.load(SettingsService());
     addTearDown(settings.dispose);
     if (locale != null) await settings.setLocale(locale);
-    await tester.pumpWidget(Spliit2GoApp(
+    await tester.pumpWidget(GoDutchApp(
         settings: settings,
         home: openLink == null
             ? AboutScreen(loadCommit: () async => commit)
@@ -48,14 +48,14 @@ void main() {
   testWidgets('App settings opens About, with the version and the notice', (tester) async {
     final settings = await AppSettings.load(SettingsService());
     addTearDown(settings.dispose);
-    await tester.pumpWidget(Spliit2GoApp(settings: settings, home: const AppSettingsScreen()));
+    await tester.pumpWidget(GoDutchApp(settings: settings, home: const AppSettingsScreen()));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('About Spliit2Go'), 200);
+    await tester.scrollUntilVisible(find.text('About Go Dutch'), 200);
     // All of it, not just its top edge, so the tap lands on it.
-    await tester.ensureVisible(find.text('About Spliit2Go'));
+    await tester.ensureVisible(find.text('About Go Dutch'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('About Spliit2Go'));
+    await tester.tap(find.text('About Go Dutch'));
     await tester.pumpAndSettle();
 
     expect(find.byType(AboutScreen), findsOneWidget);
@@ -114,7 +114,7 @@ void main() {
     final settings = await AppSettings.load(SettingsService());
     addTearDown(settings.dispose);
     final commit = Completer<BuildCommit>();
-    await tester.pumpWidget(Spliit2GoApp(
+    await tester.pumpWidget(GoDutchApp(
         settings: settings, home: AboutScreen(loadCommit: () => commit.future)));
     await tester.pumpAndSettle();
     expect(find.text('Version 1.2.3 (45)'), findsOneWidget);
@@ -131,16 +131,23 @@ void main() {
       return true;
     });
 
-    for (final title in ['Spliit', 'Source code', 'Help and feedback', 'Privacy policy']) {
+    for (final title in [
+      'Spliit',
+      'Source code',
+      'Original project',
+      'Help and feedback',
+      'Privacy policy',
+    ]) {
       await tester.ensureVisible(find.widgetWithText(ListTile, title));
       await tester.tap(find.widgetWithText(ListTile, title));
       await tester.pump();
     }
     expect(opened, [
       Uri.parse('https://spliit.app'),
+      Uri.parse('https://github.com/driftywinds/godutch'),
       Uri.parse('https://github.com/sharneng/spliit2go'),
-      Uri.parse('https://github.com/sharneng/spliit2go/issues'),
-      Uri.parse('https://github.com/sharneng/spliit2go/blob/main/docs/privacy.md'),
+      Uri.parse('https://github.com/driftywinds/godutch/issues'),
+      Uri.parse('https://github.com/driftywinds/godutch/blob/main/docs/privacy.md'),
     ]);
     expect(find.byType(SnackBar), findsNothing);
   });
@@ -150,7 +157,7 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(ListTile, 'Source code'));
     await tester.tap(find.widgetWithText(ListTile, 'Source code'));
     await tester.pump();
-    expect(find.text("Couldn't open https://github.com/sharneng/spliit2go."), findsOneWidget);
+    expect(find.text("Couldn't open https://github.com/driftywinds/godutch."), findsOneWidget);
   });
 
   testWidgets('Open-source licenses opens the licenses page', (tester) async {
@@ -161,19 +168,22 @@ void main() {
     expect(find.byType(LicensePage), findsOneWidget);
   });
 
-  test("Spliit's and spliit-ios's MIT notices are registered once", () async {
+  test("spliit2go's, Spliit's and spliit-ios's MIT notices are registered once", () async {
     registerUpstreamLicenses();
     registerUpstreamLicenses();
     final entries = await LicenseRegistry.licenses
-        .where((e) => e.packages.any((p) => p == 'Spliit' || p == 'spliit-ios'))
+        .where((e) =>
+            e.packages.any((p) => p == 'spliit2go' || p == 'Spliit' || p == 'spliit-ios'))
         .toList();
     String text(LicenseEntry e) => e.paragraphs.map((p) => p.text).join('\n');
-    expect(entries.map((e) => e.packages.single), ['Spliit', 'spliit-ios']);
-    expect(text(entries[0]), contains('Copyright (c) 2023 Sebastien Castiel'));
-    expect(text(entries[1]), contains('Copyright (c) 2026 Sebastien Castiel'));
-    expect(text(entries[0]),
+    expect(entries.map((e) => e.packages.single), ['spliit2go', 'Spliit', 'spliit-ios']);
+    expect(text(entries[0]), contains('rebranded fork of spliit2go'));
+    expect(text(entries[0]), contains('Copyright (c) 2026 spliit2go contributors'));
+    expect(text(entries[1]), contains('Copyright (c) 2023 Sebastien Castiel'));
+    expect(text(entries[2]), contains('Copyright (c) 2026 Sebastien Castiel'));
+    expect(text(entries[1]),
         contains('this permission notice (including the next paragraph) shall be included'));
-    expect(text(entries[1]), contains('this permission notice shall be included'));
+    expect(text(entries[2]), contains('this permission notice shall be included'));
     for (final e in entries) {
       expect(text(e), contains('THE SOFTWARE IS PROVIDED "AS IS"'));
     }

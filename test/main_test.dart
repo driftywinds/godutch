@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/main.dart';
-import 'package:spliit2go/theme.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/main.dart';
+import 'package:godutch/theme.dart';
 
 void main() {
   // Regression test for the "deep black nav bar regardless of theme"
@@ -22,13 +22,13 @@ void main() {
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: spliit2goLightTheme,
-      builder: spliit2goAppBuilder,
+      theme: goDutchLightTheme,
+      builder: goDutchAppBuilder,
       home: const Scaffold(body: Text('content')),
     ));
 
     final container = tester.widget<Container>(find.byType(Container).first);
-    expect(container.color, spliit2goLightTheme.scaffoldBackgroundColor);
+    expect(container.color, goDutchLightTheme.scaffoldBackgroundColor);
   });
 
   testWidgets('the backdrop tracks dark mode too, not just the light theme',
@@ -37,15 +37,15 @@ void main() {
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: spliit2goLightTheme,
-      darkTheme: spliit2goDarkTheme,
+      theme: goDutchLightTheme,
+      darkTheme: goDutchDarkTheme,
       themeMode: ThemeMode.dark,
-      builder: spliit2goAppBuilder,
+      builder: goDutchAppBuilder,
       home: const Scaffold(body: Text('content')),
     ));
 
     final container = tester.widget<Container>(find.byType(Container).first);
-    expect(container.color, spliit2goDarkTheme.scaffoldBackgroundColor);
+    expect(container.color, goDutchDarkTheme.scaffoldBackgroundColor);
   });
 
   testWidgets('the backdrop sits behind a SafeArea that insets the sides only (#197)',
@@ -54,8 +54,8 @@ void main() {
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: spliit2goLightTheme,
-      builder: spliit2goAppBuilder,
+      theme: goDutchLightTheme,
+      builder: goDutchAppBuilder,
       home: const Scaffold(body: Text('content')),
     ));
 
@@ -74,8 +74,8 @@ void main() {
     tester.view.padding = const FakeViewPadding(bottom: 34);
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme,
-      builder: spliit2goAppBuilder,
+      theme: goDutchLightTheme,
+      builder: goDutchAppBuilder,
       home: Builder(
         builder: (context) => Scaffold(
           body: TextButton(
@@ -97,8 +97,8 @@ void main() {
     Future<void> pump(WidgetTester tester, List<String> tapped) => tester.pumpWidget(MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          theme: spliit2goLightTheme,
-          builder: spliit2goAppBuilder,
+          theme: goDutchLightTheme,
+          builder: goDutchAppBuilder,
           home: Scaffold(
             body: Column(children: [
               const TextField(),

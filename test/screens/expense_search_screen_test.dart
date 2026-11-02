@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_search_screen.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_search_screen.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 // Issue #39: search filters the group's cached expenses by title as you
 // type, offline too.

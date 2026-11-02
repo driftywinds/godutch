@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/activity.dart';
-import 'package:spliit2go/services/activity_date_group.dart';
+import 'package:godutch/models/activity.dart';
+import 'package:godutch/services/activity_date_group.dart';
 
 // Issue #91: the activity log's nine sections, the same rules as
 // spliit-web's activity-list.tsx and spliit-ios's ActivityDateGroup.

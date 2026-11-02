@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/widgets/bottom_inset.dart';
+import 'package:godutch/widgets/bottom_inset.dart';
 
 void main() {
   testWidgets('adds the bottom safe-area inset to the padding (#197)', (tester) async {

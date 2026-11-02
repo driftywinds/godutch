@@ -1,5 +1,7 @@
-name: spliit2go
-description: Unofficial, offline-capable Flutter client for Spliit Cloud.
+name: godutch
+description: Go Dutch, an unofficial, offline-capable Flutter client for Spliit Cloud.
+homepage: https://github.com/driftywinds/godutch
+repository: https://github.com/driftywinds/godutch
 publish_to: 'none'
 # Build 300: above every build #174's scripts/flutter_stamped numbered by
 # commit count (249-252 seen), so a plain build over one is an upgrade, not a
@@ -59,7 +61,7 @@ flutter:
   # beside the real app; `--flavor prod` for that one (#219).
   default-flavor: dev
   assets:
-    - assets/spliit2go-logo.png
+    - assets/godutch/transparent-logo.png
   uses-material-design: true
   generate: true
 

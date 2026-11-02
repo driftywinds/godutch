@@ -36,6 +36,9 @@ ios/Flutter/Flutter.podspec
 # Local scratch (toolchain probes, downloads, generated logs)
 .tmp/
 
+# Python cache from the asset scripts
+__pycache__/
+
 # Local config (device-specific Spliit instance URL, etc.)
 lib/api/local_config.dart
 .flutter-ci.log

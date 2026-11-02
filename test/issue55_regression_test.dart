@@ -8,15 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/group_list_screen.dart';
-import 'package:spliit2go/screens/group_settings_screen.dart';
-import 'package:spliit2go/services/date_span_calculator.dart';
-import 'package:spliit2go/utils/date_format.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/group_list_screen.dart';
+import 'package:godutch/screens/group_settings_screen.dart';
+import 'package:godutch/services/date_span_calculator.dart';
+import 'package:godutch/utils/date_format.dart';
 
 import 'support/error_log.dart';
 

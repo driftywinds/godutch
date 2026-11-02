@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:spliit2go/services/date_span_calculator.dart';
-import 'package:spliit2go/utils/date_format.dart';
+import 'package:godutch/services/date_span_calculator.dart';
+import 'package:godutch/utils/date_format.dart';
 
 void main() {
   const en = Locale('en');

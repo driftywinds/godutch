@@ -1,6 +1,6 @@
 # Decision records
 
-Why spliit2go is built the way it is. How the code of the most complex screen, adding and editing an expense, is laid out is in [expense-screen-code.md](../expense-screen-code.md). These are point-in-time records: each says when it was written, and the code and the issue tracker win if they disagree. Current feature status is in the [top-level README](../../README.md).
+Why Go Dutch is built the way it is. How the code of the most complex screen, adding and editing an expense, is laid out is in [expense-screen-code.md](../expense-screen-code.md). These are point-in-time records: each says when it was written, and the code and the issue tracker win if they disagree. Current feature status is in the [top-level README](../../README.md).
 
 | Document | Covers |
 |---|---|
@@ -17,7 +17,7 @@ Why spliit2go is built the way it is. How the code of the most complex screen, a
 | [expense-search.md](expense-search.md) | Searching a group's expenses by title, on the device rather than the server ([#39](https://github.com/sharneng/spliit2go/issues/39)) |
 | [stats-screen.md](stats-screen.md) | The Stats tab for the first release: one "The group" total instead of Summary and Totals, no "You" section yet, rows that stack instead of overflowing ([#103](https://github.com/sharneng/spliit2go/issues/103)) |
 | [error-handling.md](error-handling.md) | One policy for errors: user, connection and unexpected; only unexpected errors are logged and offer copyable details; a fallback for errors nothing caught ([#118](https://github.com/sharneng/spliit2go/issues/118), [#119](https://github.com/sharneng/spliit2go/pull/119)) |
-| [app-icon.md](app-icon.md) | The Spliit2Go logo and icon: which design, how each platform's icon is framed, and the store icons ([#106](https://github.com/sharneng/spliit2go/issues/106)) |
+| [app-icon.md](app-icon.md) | The Go Dutch logo and icon: the art, how each platform's icon is framed, and the store icons ([#106](https://github.com/sharneng/spliit2go/issues/106)) |
 | [receipts.md](receipts.md) | Receipts: viewing and attaching them, offline too and kept across restarts, downloading favorite groups' ahead, the storage policy and limit for receipt files, and scanning them on the phone ([#5](https://github.com/sharneng/spliit2go/issues/5), [#123](https://github.com/sharneng/spliit2go/issues/123)–[#128](https://github.com/sharneng/spliit2go/issues/128)) |
 | [offline-categories.md](offline-categories.md) | Expense categories offline: each server's list kept on the device, Spliit's seeded list until it's first read ([#132](https://github.com/sharneng/spliit2go/issues/132)) |
 | [currency-conversion.md](currency-conversion.md) | Expenses paid in another currency: how Spliit stores them, what spliit-web and spliit-ios do, exchange rates from Frankfurter v2 with EUR as the hub (ECB first, averaged otherwise), the rate cache on the phone, and downloading rates ahead for offline use ([#251](https://github.com/sharneng/spliit2go/issues/251), [#252](https://github.com/sharneng/spliit2go/issues/252)) |

@@ -4,7 +4,7 @@ Written 2026-10-04 for [#176](https://github.com/sharneng/spliit2go/issues/176),
 
 ## What it's for
 
-To tell which code a build came from, both for testing on our own phones and in bug reports. About shows the commit after the build number, `Version 1.0.0 (300 · a1b2c3d)`, and its copy button copies `Spliit2Go 1.0.0 (300 · <full hash>)`.
+To tell which code a build came from, both for testing on our own phones and in bug reports. About shows the commit after the build number, `Version 1.0.0 (300 · a1b2c3d)`, and its copy button copies `Go Dutch 1.0.0 (300 · <full hash>)`.
 
 ## What gets recorded
 
@@ -29,7 +29,7 @@ Each platform's own build system runs `git`, so plain `flutter run` / `flutter b
 
 - **Android:** `android/app/build.gradle.kts` has a `GitCommitSource` `ValueSource` that runs `git rev-parse HEAD` and `git diff --quiet HEAD --` and becomes `BuildConfig.GIT_COMMIT`. Through a `ValueSource`, git runs on every build, and HEAD and the dirty state are both inputs Gradle tracks, including under the configuration cache ([Gradle: external processes](https://docs.gradle.org/current/userguide/configuration_cache_requirements.html#config_cache:requirements:external_processes)). A missing `git` executable throws, and that's caught as empty. Gradle runs on Windows, macOS and Linux, so Android builds get the commit on all three.
 - **iOS:** the Runner target's "Build Info" phase runs `ios/scripts/write_build_info.sh`, which writes `BuildInfo.plist` into the app's resources before signing. The phase declares that file as its output and has `alwaysOutOfDate = 1`, so it runs on every build, including incremental ones. It writes its own file rather than a key in the processed `Info.plist`, since Xcode runs build steps in parallel and a script could race Xcode's own writing of that file.
-- **Dart:** `lib/services/build_info.dart` asks for `gitCommit` on the `com.sharneng.spliit2go/build_info` channel (`MainActivity.kt`, `AppDelegate.swift`). No channel, or any failure, is unknown.
+- **Dart:** `lib/services/build_info.dart` asks for `gitCommit` on the `com.dwprod.godutch/build_info` channel (`MainActivity.kt`, `AppDelegate.swift`). No channel, or any failure, is unknown.
 
 The commit is native data, read when About opens, so a hot reload or hot restart keeps the commit of the last native build.
 

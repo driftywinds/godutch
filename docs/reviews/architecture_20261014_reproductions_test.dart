@@ -1,5 +1,5 @@
-import 'package:spliit2go/screens/expense_form/expense_form_model.dart';
-import 'package:spliit2go/models/default_split.dart';
+import 'package:godutch/screens/expense_form/expense_form_model.dart';
+import 'package:godutch/models/default_split.dart';
 
 import 'dart:convert';
 
@@ -7,13 +7,13 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/screens/join_group_screen.dart';
-import 'package:spliit2go/services/settings_service.dart';
-import 'package:spliit2go/sync/outbox.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/screens/join_group_screen.dart';
+import 'package:godutch/services/settings_service.dart';
+import 'package:godutch/sync/outbox.dart';
 
 // Characterization tests: these PASS when the reviewed defect is present.
 // Kept outside test/ so the normal suite does not require bugs to remain.

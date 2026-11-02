@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/services/receipt_fill.dart';
-import 'package:spliit2go/services/receipt_text.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/services/receipt_fill.dart';
+import 'package:godutch/services/receipt_text.dart';
 
 // Issue #153: Chinese and Japanese receipts. spliit-ios reads neither, so
 // these rules are this app's own. The transcripts are rows as

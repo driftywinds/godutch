@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/services/active_user.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/services/active_user.dart';
 
 void main() {
   const alex = Participant(id: 'alex', name: 'Alex');

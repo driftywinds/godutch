@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:spliit2go/services/receipt_photo.dart';
+import 'package:godutch/services/receipt_photo.dart';
 
 // Issue #123: a photo is redrawn before upload, as spliit-ios does.
 void main() {

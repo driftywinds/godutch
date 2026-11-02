@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/app_menu.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/app_menu.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 // #217: one popup menu on every platform, styled after One UI's.
 void main() {
   Future<void> open(WidgetTester tester, List<AppMenuItem> items,
       {ThemeData? theme, TargetPlatform platform = TargetPlatform.android}) async {
     await tester.pumpWidget(MaterialApp(
-      theme: (theme ?? spliit2goLightTheme).copyWith(platform: platform),
+      theme: (theme ?? goDutchLightTheme).copyWith(platform: platform),
       home: Scaffold(
           appBar: AppBar(actions: [
         AppMenuButton(icon: const Icon(Icons.sort), tooltip: 'Menu', items: items),
@@ -37,7 +37,7 @@ void main() {
       expect(tester.getTopLeft(find.text('First')).dx, second.left);
       expect(tester.getTopLeft(find.text('Third')).dx, second.left);
       expect(tester.widget<Icon>(find.byIcon(Icons.check)).color,
-          spliit2goLightTheme.colorScheme.primary);
+          goDutchLightTheme.colorScheme.primary);
 
       // A screen reader hears which order is current (#227 review).
       final handle = tester.ensureSemantics();
@@ -61,7 +61,7 @@ void main() {
       AppMenuItem(label: 'Share', icon: Icons.share, onSelected: () {}),
     ]);
     Color label(String text) => DefaultTextStyle.of(tester.element(find.text(text))).style.color!;
-    final onSurface = spliit2goLightTheme.colorScheme.onSurface;
+    final onSurface = goDutchLightTheme.colorScheme.onSurface;
     expect(label('Share'), onSurface);
     expect(label('Settings'), onSurface.withValues(alpha: 0.38));
     // Not a check: a row that isn't a choice says nothing about one.
@@ -77,17 +77,17 @@ void main() {
     ]);
     expect(tester.getRect(find.byIcon(Icons.share)).right,
         lessThan(tester.getRect(find.text('Share')).left));
-    final red = spliit2goLightTheme.colorScheme.error;
+    final red = goDutchLightTheme.colorScheme.error;
     expect(tester.widget<Icon>(find.byIcon(Icons.delete)).color, red);
     expect(tester.widget<Text>(find.text('Remove')).style!.color, red);
     expect(tester.widget<PopupMenuItem<int>>(find.byType(PopupMenuItem<int>).first).height, 40);
   });
 
   test('menus: the page color in light mode, the card color in dark, with a hairline edge', () {
-    final light = spliit2goLightTheme.popupMenuTheme;
-    expect(light.color, spliit2goLightTheme.scaffoldBackgroundColor);
-    final dark = spliit2goDarkTheme.popupMenuTheme;
-    expect(dark.color, GroupedSection.cardColorOf(spliit2goDarkTheme.colorScheme));
+    final light = goDutchLightTheme.popupMenuTheme;
+    expect(light.color, goDutchLightTheme.scaffoldBackgroundColor);
+    final dark = goDutchDarkTheme.popupMenuTheme;
+    expect(dark.color, GroupedSection.cardColorOf(goDutchDarkTheme.colorScheme));
     final edge = (dark.shape! as RoundedRectangleBorder).side;
     expect(edge.width, 0.5);
     expect(edge.color, Color.lerp(dark.color, GroupedDivider.darkColor, 0.5));
@@ -95,6 +95,6 @@ void main() {
   });
 
   test("dark mode's red is the amount red", () {
-    expect(spliit2goDarkTheme.colorScheme.error, SpliitColors.dark.moneyNegative);
+    expect(goDutchDarkTheme.colorScheme.error, SpliitColors.dark.moneyNegative);
   });
 }

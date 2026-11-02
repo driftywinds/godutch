@@ -8,14 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/models/group_organization.dart';
-import 'package:spliit2go/services/receipt_cache.dart';
-import 'package:spliit2go/services/receipt_downloader.dart';
-import 'package:spliit2go/services/settings_service.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/models/group_organization.dart';
+import 'package:godutch/services/receipt_cache.dart';
+import 'package:godutch/services/receipt_downloader.dart';
+import 'package:godutch/services/settings_service.dart';
 
 import '../support/error_log.dart';
 

@@ -12,11 +12,12 @@ import '../widgets/text_scaled.dart';
 
 /// Where About's links go (#109).
 const spliitUrl = 'https://spliit.app';
-const sourceCodeUrl = 'https://github.com/sharneng/spliit2go';
-const supportUrl = 'https://github.com/sharneng/spliit2go/issues';
+const sourceCodeUrl = 'https://github.com/driftywinds/godutch';
+const supportUrl = 'https://github.com/driftywinds/godutch/issues';
+const upstreamUrl = 'https://github.com/sharneng/spliit2go';
 
 /// The privacy policy (#111), published as the rendered file in the repo.
-const privacyPolicyUrl = 'https://github.com/sharneng/spliit2go/blob/main/docs/privacy.md';
+const privacyPolicyUrl = 'https://github.com/driftywinds/godutch/blob/main/docs/privacy.md';
 
 /// Opens [url] outside the app; false if nothing could.
 typedef LinkOpener = Future<bool> Function(Uri url);
@@ -31,8 +32,9 @@ Future<bool> _openExternally(Uri url) async {
 }
 
 /// The app's name and version, the "unofficial client" notice Spliit's
-/// author asked for (spliit-app/spliit#658), and links to Spliit, the
-/// source, support, the privacy policy (#111) and the licenses page (#109).
+/// author asked for (spliit-app/spliit#658), links to Spliit, the source,
+/// support and the privacy policy (#111), the original upstream project
+/// this app was forked from, and the licenses page (#109).
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key, this.openLink = _openExternally, this.loadCommit = loadBuildCommit});
 
@@ -88,8 +90,8 @@ class _AboutScreenState extends State<AboutScreen> {
         ?.showSnackBar(SnackBar(content: Text(context.l10n.aboutVersionCopied)));
   }
 
-  Widget _logo(double size) =>
-      Image.asset('assets/spliit2go-logo.png', width: size, height: size, excludeFromSemantics: true);
+  Widget _logo(double size) => Image.asset('assets/godutch/transparent-logo.png',
+      width: size, height: size, excludeFromSemantics: true);
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +152,8 @@ class _AboutScreenState extends State<AboutScreen> {
           ),
           const Divider(height: 32),
           link(Icons.public, 'Spliit', l10n.aboutSpliitSubtitle, spliitUrl),
-          link(Icons.code, l10n.aboutSourceCode, 'github.com/sharneng/spliit2go', sourceCodeUrl),
+          link(Icons.code, l10n.aboutSourceCode, 'github.com/driftywinds/godutch', sourceCodeUrl),
+          link(Icons.history_edu, l10n.aboutUpstream, l10n.aboutUpstreamSubtitle, upstreamUrl),
           link(Icons.help_outline, l10n.aboutSupport, l10n.aboutSupportSubtitle, supportUrl),
           link(Icons.privacy_tip_outlined, l10n.aboutPrivacyPolicy, l10n.aboutPrivacyPolicySubtitle,
               privacyPolicyUrl),

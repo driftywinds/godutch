@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/services/receipt_downloader.dart';
-import 'package:spliit2go/widgets/caption_icon.dart';
-import 'package:spliit2go/widgets/receipt_download_indicator.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/services/receipt_downloader.dart';
+import 'package:godutch/widgets/caption_icon.dart';
+import 'package:godutch/widgets/receipt_download_indicator.dart';
 
 // Issue #127: a favorite group's 📎 (Kenneth): blinking while downloading,
 // red after an error, solid when done; tapping shows the progress.

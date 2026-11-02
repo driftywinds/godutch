@@ -5,11 +5,11 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/services/receipt_cache.dart';
-import 'package:spliit2go/services/receipt_photo.dart';
-import 'package:spliit2go/widgets/receipt_attachments.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/services/receipt_cache.dart';
+import 'package:godutch/services/receipt_photo.dart';
+import 'package:godutch/widgets/receipt_attachments.dart';
 
 import '../support/error_log.dart';
 

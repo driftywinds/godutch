@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/services/receipt_text.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/services/receipt_text.dart';
 
 // Issue #155: what Vision read on the iPhone simulator, through the app's
 // own channel (ReceiptScanChannel.swift), from receipts drawn on 720x1100

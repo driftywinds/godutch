@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/currency.dart';
-import 'package:spliit2go/widgets/currency_picker.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/currency.dart';
+import 'package:godutch/widgets/currency_picker.dart';
 
 // #279: the search sheet opens with the keyboard up, and must stay on
 // the screen.

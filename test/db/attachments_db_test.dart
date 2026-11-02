@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
 
 // Issue #124: a pending expense's receipt photos.
 void main() {

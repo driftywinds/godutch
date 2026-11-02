@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/services/receipt_photo.dart';
-import 'package:spliit2go/services/receipt_scanner.dart';
-import 'package:spliit2go/services/receipt_text.dart';
+import 'package:godutch/services/receipt_photo.dart';
+import 'package:godutch/services/receipt_scanner.dart';
+import 'package:godutch/services/receipt_text.dart';
 
 /// Answers prepare with [installed] in turn (the last repeats).
 class _Scanner implements ReceiptScanner {
@@ -56,7 +56,7 @@ class _Scanner implements ReceiptScanner {
 // only while online (Kenneth).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('com.sharneng.spliit2go/receipt_scan');
+  const channel = MethodChannel('com.dwprod.godutch/receipt_scan');
   late List<String> calls;
   late List<Object?> arguments;
   Object? failWith;

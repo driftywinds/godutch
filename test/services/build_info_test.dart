@@ -1,12 +1,12 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/services/build_info.dart';
+import 'package:godutch/services/build_info.dart';
 
 // #176: the commit the Android and iOS builds write, read over a channel.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const sha = '2d83fa3c4b5a69788796a5b4c3d2e1f00a1b2c3d';
-  const channel = MethodChannel('com.sharneng.spliit2go/build_info');
+  const channel = MethodChannel('com.dwprod.godutch/build_info');
   final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 

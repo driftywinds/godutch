@@ -24,7 +24,7 @@ import UIKit
     // ios/scripts/write_build_info.sh writes into the app.
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BuildInfo") {
       let channel = FlutterMethodChannel(
-        name: "com.sharneng.spliit2go/build_info", binaryMessenger: registrar.messenger())
+        name: "com.dwprod.godutch/build_info", binaryMessenger: registrar.messenger())
       channel.setMethodCallHandler { call, result in
         guard call.method == "gitCommit" else { return result(FlutterMethodNotImplemented) }
         let info = Bundle.main.url(forResource: "BuildInfo", withExtension: "plist")

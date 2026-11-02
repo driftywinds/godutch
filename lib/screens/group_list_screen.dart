@@ -281,7 +281,7 @@ class _GroupListScreenState extends State<GroupListScreen> with RouteAware {
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
-          Image.asset('assets/spliit2go-logo.png',
+          Image.asset('assets/godutch/transparent-logo.png',
               width: 32, height: 32, excludeFromSemantics: true),
           const SizedBox(width: 8),
           const Flexible(

@@ -1,67 +1,53 @@
 #!/usr/bin/env python3
-"""Makes every app icon and logo size from the art in branding/ (#106).
+"""Makes every Go Dutch app icon and logo size from the art in assets/godutch.
 
-Run from anywhere; needs Pillow (`pip install pillow`). Writes:
+Run from anywhere; needs Pillow (`pip install pillow`). The 1024 px masters
+(`app-icon.png`, `transparent-icon.png`) are rendered from the SVGs beside
+them; replace both when the art changes. Writes:
 
   ios/Runner/Assets.xcassets/AppIcon.appiconset  every size its
       Contents.json lists, on ICON_BACKGROUND, no alpha (iOS rounds the corners)
-  android/app/src/main/res/mipmap-*/ic_launcher.png  pre-Android 8
+  android/app/src/main/res/mipmap-*/ic_launcher.png  pre-Android 8, rounded
+  android/app/src/main/res/mipmap-*/ic_launcher_round.png  the round variant
   android/app/src/main/res/drawable-*/ic_launcher_{foreground,monochrome}.png,
-      values/ic_launcher_background.xml and mipmap-anydpi-v26/ic_launcher.xml
+      values/ic_launcher_background.xml and mipmap-anydpi-v26/ic_launcher*.xml
       the adaptive icon's three layers (background, foreground, and the
       monochrome layer Android 13+ tints for themed icons)
   branding/store/app-store-icon-1024.png  App Store Connect (no alpha)
   branding/store/play-icon-512.png        Google Play
-  assets/spliit2go-logo.png (+ 2.0x/, 3.0x/)  the group list header, 32 pt,
-      the logo in a HEADER_BACKGROUND circle like the launcher icon
+  assets/godutch/transparent-logo.png (+ 2.0x/, 3.0x/)  the group list header,
+      About and empty states, 48 pt at 1x
 
 See SETUP.md, "App icon".
 """
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-BRANDING = ROOT / 'branding'
+ART = ROOT / 'assets' / 'godutch'
+
+# The pale mint behind the app icon's art, sampled from app-icon.png.
+ICON_BACKGROUND = (0x93, 0xED, 0xD4)
 
 # The transparent art has faint colored noise left from background
 # removal (alpha 1-16) and nearly opaque fills (alpha 250-254); snap both.
 NOISE_ALPHA = 16
 OPAQUE_ALPHA = 250
 
-# The solid background of branding/spliit2go-icon.png, which is the logo
-# on this color; the icons are built from the transparent logo on it.
-BACKGROUND = (0xA2, 0xE0, 0xD5)
-
-
-def lighter(color, fraction):
-    """[color] moved [fraction] of the way to white."""
-    return tuple(round(c + (255 - c) * fraction) for c in color)
-
-
-# The art's teal looked dim on a phone; Ken compared mockups at 25%, 50% and
-# 75% toward white (2026-10-01) and chose 50% for the icons, #D0F0EA. The
-# header logo takes 25%, #B9E8E0: on the near-white light-mode app bar a
-# lighter circle loses its edge.
-ICON_BACKGROUND = lighter(BACKGROUND, 0.5)
-HEADER_BACKGROUND = lighter(BACKGROUND, 0.25)
-
 # Android masks the adaptive foreground (108 dp) to a shape that always
 # contains the central 66 dp circle; keep the art inside it.
 ADAPTIVE_SAFE_RADIUS = 33 / 108
-# The square icons (iOS, the stores) leave a 10% margin: the plane's nose
-# and tail reach sideways, and at Android's fill (33 of 72 dp) they touch
-# the edges of iOS's rounded icon.
+# The square icons (iOS, the stores) leave a 10% margin: the scissors
+# reach sideways, and at Android's fill they touch the edges of iOS's
+# rounded icon.
 ICON_REACH = 0.40
+# The in-app logo is transparent and sits directly on the bar, so it fills
+# more of its box than Android's safe circle allows.
+LOGO_REACH = 0.60
 
-HEADER_POINTS = 32
-# The header's circle frames the art as Android's launcher does: the safe
-# circle's 33 dp within the 36 dp radius it shows.
-HEADER_REACH = 33 / 72
-
-IOS_ICONS = ROOT / 'ios' / 'Runner' / 'Assets.xcassets' / 'AppIcon.appiconset'
-ANDROID_RES = ROOT / 'android' / 'app' / 'src' / 'main' / 'res'
+LOGO_POINTS = 48
 # Launcher icons are 48 dp; adaptive icon layers are 108 dp.
 ANDROID_DENSITIES = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
 
@@ -80,6 +66,9 @@ BACKGROUND_XML = """<?xml version="1.0" encoding="utf-8"?>
     <color name="ic_launcher_background">#{:02X}{:02X}{:02X}</color>
 </resources>
 """.format(*ICON_BACKGROUND)
+
+IOS_ICONS = ROOT / 'ios' / 'Runner' / 'Assets.xcassets' / 'AppIcon.appiconset'
+ANDROID_RES = ROOT / 'android' / 'app' / 'src' / 'main' / 'res'
 
 
 def clean(img):
@@ -101,30 +90,32 @@ def flatten(img):
     return square.convert('RGB')
 
 
+def rounded(img, fraction=0.225):
+    """[img] with transparent rounded corners: Go Dutch's launcher shape."""
+    size = img.width
+    mask = Image.new('L', (size * 4, size * 4), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, size * 4 - 1, size * 4 - 1), radius=round(size * 4 * fraction), fill=255)
+    out = img.convert('RGBA')
+    out.putalpha(mask.resize((size, size), Image.LANCZOS))
+    return out
+
+
+def circle(img):
+    """[img] cropped to a circle, for Android's round launcher icon."""
+    size = img.width
+    mask = Image.new('L', (size * 4, size * 4), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
+    out = img.convert('RGBA')
+    out.putalpha(mask.resize((size, size), Image.LANCZOS))
+    return out
+
+
 def monochrome(art):
     """The art as one shape for Android's themed icon, which keeps only the
-    alpha: the plane and the banknote's dark green details are solid; the
-    plane's window, stripe and engine, the white trail between plane and
-    banknote, and the banknote's light green are cut out, so the two stay
-    apart."""
-    def weight(rgba):
-        r, g, b, a = rgba
-        if r - g > 30:  # the plane: coral solid, dark red cut out
-            w = (r - 170) / 40
-        else:  # the banknote and the trail: dark green (g <= 192) solid
-            w = (196 - g) / 6 + 0.5
-        return round(a * min(max(w, 0), 1))
-    mask = Image.new('L', art.size)
-    src, dst = art.load(), mask.load()
-    for y in range(art.height):
-        for x in range(art.width):
-            dst[x, y] = weight(src[x, y])
-    # The banknote's rim is soft in the art; blur and cut again so its edge
-    # comes out smooth instead of speckled.
-    mask = mask.filter(ImageFilter.GaussianBlur(art.width / 512)).point(
-        lambda v: min(max((v - 128) * 4 + 128, 0), 255))
+    alpha. The scissor holes stay transparent; everything else is solid."""
     mono = Image.new('RGBA', art.size, (255, 255, 255, 0))
-    mono.putalpha(mask)
+    mono.putalpha(art.getchannel('A'))
     return mono
 
 
@@ -147,17 +138,6 @@ def centered(art, reach, size=1024):
     return canvas
 
 
-def header_logo(art, size=1024):
-    """The logo in a HEADER_BACKGROUND circle, transparent outside it, so it sits on
-    the header in light and dark mode and matches the launcher icon."""
-    circle = Image.new('L', (size * 4, size * 4), 0)
-    ImageDraw.Draw(circle).ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=255)
-    logo = Image.new('RGBA', (size, size), HEADER_BACKGROUND + (255,))
-    logo.alpha_composite(centered(art, HEADER_REACH, size))
-    logo.putalpha(circle.resize((size, size), Image.LANCZOS))
-    return logo
-
-
 def save(img, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, optimize=True)
@@ -165,8 +145,9 @@ def save(img, path):
 
 
 def main():
-    art = clean(Image.open(BRANDING / 'spliit2go-logo.png').convert('RGBA'))
-    square = flatten(centered(art, ICON_REACH))
+    app = Image.open(ART / 'app-icon.png').convert('RGBA')
+    square = flatten(app)
+    art = clean(Image.open(ART / 'transparent-icon.png').convert('RGBA'))
 
     for image in json.loads((IOS_ICONS / 'Contents.json').read_text())['images']:
         points = float(image['size'].split('x')[0])
@@ -176,23 +157,29 @@ def main():
     foreground = centered(art, ADAPTIVE_SAFE_RADIUS)
     mono = monochrome(foreground)
     for density, ratio in ANDROID_DENSITIES.items():
-        save(resized(square, round(48 * ratio)), ANDROID_RES / f'mipmap-{density}' / 'ic_launcher.png')
+        save(rounded(resized(square, round(48 * ratio))),
+             ANDROID_RES / f'mipmap-{density}' / 'ic_launcher.png')
+        save(circle(resized(square, round(48 * ratio))),
+             ANDROID_RES / f'mipmap-{density}' / 'ic_launcher_round.png')
         save(resized(foreground, round(108 * ratio)),
              ANDROID_RES / f'drawable-{density}' / 'ic_launcher_foreground.png')
         save(resized(mono, round(108 * ratio)),
              ANDROID_RES / f'drawable-{density}' / 'ic_launcher_monochrome.png')
-    for path, text in [(ANDROID_RES / 'mipmap-anydpi-v26' / 'ic_launcher.xml', ADAPTIVE_ICON_XML),
-                       (ANDROID_RES / 'values' / 'ic_launcher_background.xml', BACKGROUND_XML)]:
-        path.parent.mkdir(exist_ok=True)
+    for path, text in [
+        (ANDROID_RES / 'mipmap-anydpi-v26' / 'ic_launcher.xml', ADAPTIVE_ICON_XML),
+        (ANDROID_RES / 'mipmap-anydpi-v26' / 'ic_launcher_round.xml', ADAPTIVE_ICON_XML),
+        (ANDROID_RES / 'values' / 'ic_launcher_background.xml', BACKGROUND_XML),
+    ]:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
         print(path.relative_to(ROOT))
 
-    save(resized(square, 1024), BRANDING / 'store' / 'app-store-icon-1024.png')
-    save(resized(square, 512), BRANDING / 'store' / 'play-icon-512.png')
+    save(resized(square, 1024), ROOT / 'branding' / 'store' / 'app-store-icon-1024.png')
+    save(resized(square, 512), ROOT / 'branding' / 'store' / 'play-icon-512.png')
 
-    logo = header_logo(art)
+    logo = centered(art, LOGO_REACH)
     for ratio, folder in [(1, ''), (2, '2.0x'), (3, '3.0x')]:
-        save(resized(logo, HEADER_POINTS * ratio), ROOT / 'assets' / folder / 'spliit2go-logo.png')
+        save(resized(logo, LOGO_POINTS * ratio), ART / folder / 'transparent-logo.png')
 
 
 if __name__ == '__main__':

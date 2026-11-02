@@ -1,7 +1,7 @@
 import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
+import 'package:godutch/l10n/app_localizations.dart';
 
 // Issue #91: Kenneth's final Chinese headings. The expense list and the
 // activity log share these strings, so this covers both screens.

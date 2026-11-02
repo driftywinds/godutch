@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/expense_list.dart';
-import 'package:spliit2go/widgets/participant_colors.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/expense_list.dart';
+import 'package:godutch/widgets/participant_colors.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 // #207: an expense row in two lines -- what you lent or owe, who paid,
 // and marks for repeats, receipts and notes.
@@ -51,7 +51,7 @@ void main() {
       Category category = general,
       ThemeData? theme}) async {
     await tester.pumpWidget(MaterialApp(
-      theme: theme ?? spliit2goLightTheme,
+      theme: theme ?? goDutchLightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -75,23 +75,23 @@ void main() {
     const groceries = Category(id: 9, name: 'Groceries', grouping: 'Food and Drink');
     await pump(tester, expense(settlement: true), category: groceries);
     final icon = tester.widget<Icon>(find.byIcon(LucideIcons.banknote));
-    expect(icon.color, spliit2goLightTheme.colorScheme.primary);
+    expect(icon.color, goDutchLightTheme.colorScheme.primary);
     expect(find.byIcon(LucideIcons.shoppingCart), findsNothing);
     final circle = tester.widget<Container>(
         find.ancestor(of: find.byIcon(LucideIcons.banknote), matching: find.byType(Container)).first);
     expect((circle.decoration! as BoxDecoration).color,
-        spliit2goLightTheme.scaffoldBackgroundColor);
+        goDutchLightTheme.scaffoldBackgroundColor);
     final title = tester.widget<Text>(find.text('Dinner')).style!;
     expect(title.fontStyle, FontStyle.italic);
     expect(title.fontWeight, FontWeight.w400);
 
     // In dark mode, on the lines' lighter tone, which stands off the card.
-    await pump(tester, expense(settlement: true), category: groceries, theme: spliit2goDarkTheme);
+    await pump(tester, expense(settlement: true), category: groceries, theme: goDutchDarkTheme);
     final darkCircle = tester.widget<Container>(
         find.ancestor(of: find.byIcon(LucideIcons.banknote), matching: find.byType(Container)).first);
     expect((darkCircle.decoration! as BoxDecoration).color, GroupedDivider.darkColor);
     expect(tester.widget<Icon>(find.byIcon(LucideIcons.banknote)).color,
-        spliit2goDarkTheme.colorScheme.primary);
+        goDutchDarkTheme.colorScheme.primary);
 
     // An expense keeps its category's icon and a bold title.
     await pump(tester, expense(), category: groceries);
@@ -230,7 +230,7 @@ void main() {
   testWidgets('in Chinese, the sentences end with 。', (tester) async {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('zh'),
-      theme: spliit2goLightTheme,
+      theme: goDutchLightTheme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -262,7 +262,7 @@ void main() {
           tester.view.devicePixelRatio = 3;
           addTearDown(tester.view.reset);
           await tester.pumpWidget(MaterialApp(
-            theme: spliit2goLightTheme,
+            theme: goDutchLightTheme,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: MediaQuery.withClampedTextScaling(

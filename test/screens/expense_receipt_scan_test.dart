@@ -10,20 +10,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_form/currency_card.dart';
-import 'package:spliit2go/screens/expense_screen.dart';
-import 'package:spliit2go/services/receipt_cache.dart';
-import 'package:spliit2go/services/receipt_photo.dart';
-import 'package:spliit2go/services/receipt_scanner.dart';
-import 'package:spliit2go/services/receipt_text.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/utils/date_format.dart';
+import 'package:godutch/widgets/grouped_section.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_form/currency_card.dart';
+import 'package:godutch/screens/expense_screen.dart';
+import 'package:godutch/services/receipt_cache.dart';
+import 'package:godutch/services/receipt_photo.dart';
+import 'package:godutch/services/receipt_scanner.dart';
+import 'package:godutch/services/receipt_text.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/utils/date_format.dart';
 
 import '../support/error_log.dart';
 
@@ -412,7 +412,7 @@ void main() {
       await tester.tap(find.text('Take photo'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Camera access is off for Spliit2Go.'), findsOneWidget);
+      expect(find.text('Camera access is off for Go Dutch.'), findsOneWidget);
       expect(picker.sources, isEmpty);
       expect(scanner.read, isEmpty);
       expect(loggedUnexpectedErrors, isEmpty);

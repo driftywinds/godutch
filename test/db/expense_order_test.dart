@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
 
 // Issue #88: same-day expenses are ordered newest-created first, like
 // Spliit's own list (expenseDate desc, then createdAt desc).

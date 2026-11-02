@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Spliit2Go uses the camera to photograph receipts for your expenses.</string>
+	<string>Go Dutch uses the camera to photograph receipts for your expenses.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Spliit2Go attaches receipt photos you choose to your expenses.</string>
+	<string>Go Dutch attaches receipt photos you choose to your expenses.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

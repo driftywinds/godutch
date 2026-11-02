@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/utils/decimal_input.dart';
+import 'package:godutch/utils/decimal_input.dart';
 
 void main() {
   group('parseFlexibleDecimal', () {

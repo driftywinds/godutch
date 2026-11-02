@@ -2,13 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/main.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/category_icon.dart';
-import 'package:spliit2go/widgets/flag_glyph.dart';
-import 'package:spliit2go/widgets/group_monogram.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
-import 'package:spliit2go/widgets/top_bar_buttons.dart';
+import 'package:godutch/main.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/category_icon.dart';
+import 'package:godutch/widgets/flag_glyph.dart';
+import 'package:godutch/widgets/group_monogram.dart';
+import 'package:godutch/widgets/grouped_section.dart';
+import 'package:godutch/widgets/top_bar_buttons.dart';
 
 // #294: glyphs grow with the text size, by where they sit.
 void main() {
@@ -16,8 +16,8 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme,
-      builder: spliit2goAppBuilder,
+      theme: goDutchLightTheme,
+      builder: goDutchAppBuilder,
       home: Scaffold(body: ListView(children: [child])),
     ));
   }

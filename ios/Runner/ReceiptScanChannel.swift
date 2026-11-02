@@ -21,7 +21,7 @@ import VisionKit
 ///   corners in the image's pixels, top-left origin, as ML Kit gives them.
 ///   iOS 16's Vision reads Chinese and Japanese as well as Latin languages.
 final class ReceiptScanChannel: NSObject, VNDocumentCameraViewControllerDelegate {
-  static let name = "com.sharneng.spliit2go/receipt_scan"
+  static let name = "com.dwprod.godutch/receipt_scan"
 
   private var pendingScan: FlutterResult?
 

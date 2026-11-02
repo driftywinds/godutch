@@ -9,14 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/main.dart' show spliit2goAppBuilder;
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/activity_screen.dart';
-import 'package:spliit2go/sync/outbox.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/main.dart' show goDutchAppBuilder;
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/activity_screen.dart';
+import 'package:godutch/sync/outbox.dart';
 
 import '../support/error_log.dart';
 
@@ -323,10 +323,10 @@ void main() {
   // #249: a row that opens its expense says so with a tonal emerald
   // circle; the others keep the plain gray icon, in the same column.
   for (final (name, theme, scale) in [
-    ('light', spliit2goLightTheme, 1.0),
-    ('dark', spliit2goDarkTheme, 1.0),
+    ('light', goDutchLightTheme, 1.0),
+    ('dark', goDutchDarkTheme, 1.0),
     // A line taller than the circle (#250 review).
-    ('light, 2x text', spliit2goLightTheme, 2.0),
+    ('light, 2x text', goDutchLightTheme, 2.0),
   ]) {
     testWidgets('an openable row\'s icon on a tonal emerald circle ($name)', (tester) async {
       final db = await newDb();
@@ -682,7 +682,7 @@ void main() {
 
     await pumpActivity(tester, server.client, db,
         now: () => DateTime(2026, 9, 24, 12), toLocal: wallClock, builder: (context, child) =>
-            Theme(data: spliit2goLightTheme, child: child!));
+            Theme(data: goDutchLightTheme, child: child!));
 
     for (final (time, sentence, ownLine) in [
       ('10:05', 'Alex added “Groceries”.', false),
@@ -730,7 +730,7 @@ void main() {
         now: () => DateTime(2026, 9, 24, 12),
         toLocal: wallClock,
         use24HourFormat: false,
-        builder: spliit2goAppBuilder);
+        builder: goDutchAppBuilder);
 
     expect(tester.takeException(), isNull);
     final sentence = tester.getRect(find.text('Someone changed the group settings.'));
@@ -774,7 +774,7 @@ void main() {
         locale: const Locale('fr'),
         now: () => DateTime(2026, 9, 24, 12),
         toLocal: wallClock,
-        builder: spliit2goAppBuilder);
+        builder: goDutchAppBuilder);
 
     expect(tester.takeException(), isNull);
     expect(find.text('Plus tôt cette semaine'), findsOneWidget);

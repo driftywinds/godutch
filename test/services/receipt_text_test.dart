@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/services/receipt_text.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/services/receipt_text.dart';
 
 // Issue #125: spliit-ios's ReceiptScanTests (80b2e98), ported, and the
 // rules #125 adds for what the parser can't be sure of.

@@ -1,6 +1,10 @@
-# spliit2go — a Spliit Cloud client
+# Go Dutch
 
-An unofficial, offline-capable Flutter client for [Spliit Cloud](https://github.com/antonio-ivanovski/spliit-cloud), the account-based fork of [Spliit](https://github.com/spliit-app/spliit). Android is the primary target; iOS uses the same code.
+<img src="assets/godutch/app-icon.png" width="96" alt="Go Dutch app icon">
+
+Go Dutch is an unofficial, offline-capable Flutter client for [Spliit Cloud](https://github.com/antonio-ivanovski/spliit-cloud), the account-based fork of [Spliit](https://github.com/spliit-app/spliit). Android is the primary target; iOS uses the same code.
+
+> **Upstream credit:** Go Dutch is a rebranded fork of [spliit2go](https://github.com/sharneng/spliit2go), the original Flutter client for Spliit Cloud by sharneng and its contributors. Its design language, UI and most of this code come from that project. Go Dutch's own source is at [github.com/driftywinds/godutch](https://github.com/driftywinds/godutch).
 
 This app speaks **only** the Spliit Cloud API. It no longer joins anonymous `spliit.app` group URLs: Cloud groups belong to an account, sync across devices, and are shared through invite links.
 
@@ -53,7 +57,7 @@ Groups, participants, expenses, categories and receipt files are cached in a loc
 
 The default instance is Spliit Cloud. To use a self-hosted Cloud API, tap **Server: spliit.cloud** on the welcome screen and enter its address; the API and web app normally share a host there.
 
-> Upgrading from the original, unauthenticated spliit2go clears the local group cache once: those groups belong to `spliit.app`/self-hosted URLs, not to a Cloud account. Rejoin them with invite links after signing in.
+> Upgrading from an earlier, unauthenticated Spliit client clears the local group cache once: those groups belong to `spliit.app`/self-hosted URLs, not to a Cloud account. Rejoin them with invite links after signing in.
 
 Generate localization and drift code before analyzing from a clean checkout:
 
@@ -77,4 +81,4 @@ Pushing a `v*` tag runs [`.github/workflows/android-release.yml`](.github/workfl
 
 ## License
 
-MIT — see `LICENSE`. Parts are adapted from Spliit and spliit-ios, both MIT; their notices are in `THIRD_PARTY_NOTICES.md`.
+MIT — see [`LICENSE`](LICENSE). Go Dutch is forked from [spliit2go](https://github.com/sharneng/spliit2go), which is MIT licensed. Parts are adapted from Spliit and spliit-ios, both MIT; their notices are in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

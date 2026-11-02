@@ -1,8 +1,8 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/services/date_span_calculator.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/services/date_span_calculator.dart';
 
 void main() {
   late AppDatabase db;

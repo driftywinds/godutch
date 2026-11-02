@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/services/receipt_fill.dart';
-import 'package:spliit2go/services/receipt_text.dart';
+import 'package:godutch/services/receipt_fill.dart';
+import 'package:godutch/services/receipt_text.dart';
 
 // Issue #125: a scan's suggestions never overwrite the user, and what the
 // parser isn't sure of is a hint, never a value.

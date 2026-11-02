@@ -5,10 +5,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/services/error_reporting.dart';
-import 'package:spliit2go/services/receipt_cache.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/services/error_reporting.dart';
+import 'package:godutch/services/receipt_cache.dart';
 
 // Issue #123: receipt images on this device and the storage policy.
 void main() {

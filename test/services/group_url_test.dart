@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/services/group_url.dart';
+import 'package:godutch/services/group_url.dart';
 
 void main() {
   group('parseGroupUrl', () {
@@ -141,8 +141,8 @@ void main() {
     });
 
     test('finds the link after a subject or a sentence', () {
-      expectDemo('Spliit2Go Demo Group https://spliit.app/groups/$id');
-      expectDemo('Spliit2Go Demo Group\nhttps://spliit.app/groups/$id');
+      expectDemo('Go Dutch Demo Group https://spliit.app/groups/$id');
+      expectDemo('Go Dutch Demo Group\nhttps://spliit.app/groups/$id');
       expectDemo('Join my group: https://spliit.app/groups/$id.');
       expectDemo('Join my group: https://spliit.app/groups/$id and add the hotel');
     });

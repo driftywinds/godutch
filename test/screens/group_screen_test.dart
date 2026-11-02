@@ -8,26 +8,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/app_name.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/main.dart' show spliit2goAppBuilder;
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/models/group_organization.dart';
-import 'package:spliit2go/screens/activity_screen.dart';
-import 'package:spliit2go/screens/balances_screen.dart';
-import 'package:spliit2go/screens/expense_search_screen.dart';
-import 'package:spliit2go/widgets/expense_list.dart';
-import 'package:spliit2go/screens/group_screen.dart';
-import 'package:spliit2go/screens/group_settings_screen.dart';
-import 'package:spliit2go/screens/stats_screen.dart';
-import 'package:spliit2go/services/settings_service.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
-import 'package:spliit2go/widgets/category_icon.dart';
+import 'package:godutch/app_name.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/main.dart' show goDutchAppBuilder;
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/models/group_organization.dart';
+import 'package:godutch/screens/activity_screen.dart';
+import 'package:godutch/screens/balances_screen.dart';
+import 'package:godutch/screens/expense_search_screen.dart';
+import 'package:godutch/widgets/expense_list.dart';
+import 'package:godutch/screens/group_screen.dart';
+import 'package:godutch/screens/group_settings_screen.dart';
+import 'package:godutch/screens/stats_screen.dart';
+import 'package:godutch/services/settings_service.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/grouped_section.dart';
+import 'package:godutch/widgets/category_icon.dart';
 
 
 /// The expense details' edit or delete button, an icon on a capsule
@@ -679,7 +679,7 @@ void main() {
 
     testWidgets('the bar is a card, its selected tab highlighted as the add button (#215)',
         (tester) async {
-      for (final theme in [spliit2goLightTheme, spliit2goDarkTheme]) {
+      for (final theme in [goDutchLightTheme, goDutchDarkTheme]) {
         final db = AppDatabase(NativeDatabase.memory());
         await pumpGroupScreen(tester, db, theme: theme);
         final reason = '${theme.brightness}';
@@ -1040,7 +1040,7 @@ void main() {
       useLandscapeWithInsets(tester);
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      await pumpWithBuilder(tester, db, builder: spliit2goAppBuilder);
+      await pumpWithBuilder(tester, db, builder: goDutchAppBuilder);
 
       expectBottomBarInsideSafeArea(tester);
       // See the first test above for why. (issue #47)

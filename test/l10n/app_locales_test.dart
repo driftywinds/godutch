@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/l10n/app_locales.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/l10n/app_locales.dart';
 
 void main() {
   test('every picker option round-trips through its persisted tag', () {

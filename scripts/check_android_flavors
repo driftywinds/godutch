@@ -42,7 +42,7 @@ gradle :app:validateSigningDevDebug
 
 # "<variant> <SHA-256>" for each app variant.
 signatures() {
-  gradle :app:signingReport "-Pspliit2go.keyProperties=$1" > "$TMP/report.txt"
+  gradle :app:signingReport "-Pgodutch.keyProperties=$1" > "$TMP/report.txt"
   awk '/^Variant:/ { v = $2 } /^SHA-256:/ { print v, $2 }' "$TMP/report.txt" |
     grep -E '^(dev|prod)(Debug|Profile|Release) ' | sort
 }
@@ -70,7 +70,7 @@ prod_release="$(awk '$1 == "prodRelease" { print $2 }' "$TMP/with.txt")"
 echo "ok: dev is signed with one key in every mode, with or without an upload key; prod release takes the upload key"
 
 rm -rf build/app/outputs/bundle
-if gradle :app:bundleDebug "-Pspliit2go.keyProperties=$TMP/none.properties" > "$TMP/bundle.log" 2>&1; then
+if gradle :app:bundleDebug "-Pgodutch.keyProperties=$TMP/none.properties" > "$TMP/bundle.log" 2>&1; then
   fail "bundleDebug succeeded, though it includes a dev bundle"
 fi
 grep -q "Play bundles are prod only" "$TMP/bundle.log" ||

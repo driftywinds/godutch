@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/default_split.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
+import 'package:godutch/models/default_split.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
 
 void main() {
   const alice = Participant(id: 'alice', name: 'Alice');

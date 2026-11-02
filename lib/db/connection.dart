@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 LazyDatabase openConnection() {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();
+    // Kept from the pre-rebrand app so an in-place update keeps its cache.
     final file = File(p.join(dir.path, 'spliit2go.sqlite'));
     return NativeDatabase.createInBackground(file);
   });

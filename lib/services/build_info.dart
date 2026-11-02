@@ -20,7 +20,7 @@ class BuildCommit {
   }
 }
 
-const _channel = MethodChannel('com.sharneng.spliit2go/build_info');
+const _channel = MethodChannel('com.dwprod.godutch/build_info');
 
 /// Reads the commit from the platform; unknown if it can't.
 Future<BuildCommit> loadBuildCommit() async {

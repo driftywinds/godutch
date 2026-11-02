@@ -20,7 +20,7 @@ const monogramPalette = <Color>[
 ];
 
 /// The green of the "Spliit" wordmark in spliit-ios (its `Logo` image,
-/// sampled), used for the "Spliit2Go" title on the group list.
+/// sampled), used for the "Go Dutch" title on the group list.
 const spliitWordmarkGreen = Color(0xff56BC9C);
 
 /// spliit-ios's `AccentColor`: emerald, lightened for dark mode (#178).
@@ -294,26 +294,26 @@ class SpliitColors extends ThemeExtension<SpliitColors> {
   }
 }
 
-/// spliit2go's light theme -- Material 3, seeded from spliit-ios's
+/// Go Dutch's light theme -- Material 3, seeded from spliit-ios's
 /// emerald accent.
-/// Paired with [spliit2goDarkTheme] below so the app actually has
+/// Paired with [goDutchDarkTheme] below so the app actually has
 /// something to switch to when the system is in dark mode (issue #25;
-/// see the doc comment on [Spliit2GoApp]'s `MaterialApp` for why a
+/// see the doc comment on [GoDutchApp]'s `MaterialApp` for why a
 /// `darkTheme` was the whole bug).
-ThemeData get spliit2goLightTheme => _appTheme(Brightness.light);
+ThemeData get goDutchLightTheme => _appTheme(Brightness.light);
 
-/// spliit2go's dark theme -- same Material 3 + emerald seed as
-/// [spliit2goLightTheme], opposite [Brightness.dark], so system dark
+/// Go Dutch's dark theme -- same Material 3 + emerald seed as
+/// [goDutchLightTheme], opposite [Brightness.dark], so system dark
 /// mode gets a genuinely dark version of this app's own look rather
 /// than a generic Material dark theme.
-ThemeData get spliit2goDarkTheme => _appTheme(Brightness.dark);
+ThemeData get goDutchDarkTheme => _appTheme(Brightness.dark);
 
 /// The themes with the system's Increase Contrast on (iOS's
 /// accessibility setting; MaterialApp picks them by itself): secondary
 /// content undimmed (#211).
-ThemeData get spliit2goLightHighContrastTheme =>
+ThemeData get goDutchLightHighContrastTheme =>
     _appTheme(Brightness.light, highContrast: true);
-ThemeData get spliit2goDarkHighContrastTheme => _appTheme(Brightness.dark, highContrast: true);
+ThemeData get goDutchDarkHighContrastTheme => _appTheme(Brightness.dark, highContrast: true);
 
 /// The system status/navigation bar styling for the given [theme]'s
 /// current brightness -- issue #24 follow-up: without this, Android
@@ -323,7 +323,7 @@ ThemeData get spliit2goDarkHighContrastTheme => _appTheme(Brightness.dark, highC
 /// way most well-behaved edge-to-edge apps look. Matches the nav bar to
 /// [ThemeData.scaffoldBackgroundColor] -- what a screen's own content
 /// actually shows through to -- rather than a fixed color, so it stays
-/// correct across both [spliit2goLightTheme] and [spliit2goDarkTheme]
+/// correct across both [goDutchLightTheme] and [goDutchDarkTheme]
 /// and if that background ever changes.
 ///
 /// Note: on a device targeting Android API 35+ (this app's default,
@@ -346,7 +346,7 @@ ThemeData get spliit2goDarkHighContrastTheme => _appTheme(Brightness.dark, highC
 /// still matter as the fallback for the brief window before the first
 /// screen's `AppBar` mounts, and for any future screen that doesn't use
 /// one.
-SystemUiOverlayStyle spliit2goSystemUiOverlayStyle(ThemeData theme) {
+SystemUiOverlayStyle goDutchSystemUiOverlayStyle(ThemeData theme) {
   final navBarIsLight =
       ThemeData.estimateBrightnessForColor(theme.scaffoldBackgroundColor) ==
           Brightness.light;

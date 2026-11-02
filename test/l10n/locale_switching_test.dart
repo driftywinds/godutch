@@ -4,18 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/l10n/context_l10n.dart';
-import 'package:spliit2go/main.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/app_settings_screen.dart';
-import 'package:spliit2go/screens/group_screen.dart';
-import 'package:spliit2go/services/app_settings.dart';
-import 'package:spliit2go/services/settings_service.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/utils/money.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/l10n/context_l10n.dart';
+import 'package:godutch/main.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/app_settings_screen.dart';
+import 'package:godutch/screens/group_screen.dart';
+import 'package:godutch/services/app_settings.dart';
+import 'package:godutch/services/settings_service.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/utils/money.dart';
 
 // Issue #51's end-to-end i18n checks: the language picker, live switching,
 // persistence, fallback, and that formatters follow the *resolved app*
@@ -31,7 +31,7 @@ void main() {
 
   Future<void> pumpSettingsApp(WidgetTester tester, AppSettings settings) async {
     await tester.pumpWidget(
-        Spliit2GoApp(settings: settings, home: const AppSettingsScreen()));
+        GoDutchApp(settings: settings, home: const AppSettingsScreen()));
     await tester.pumpAndSettle();
   }
 
@@ -136,7 +136,7 @@ void main() {
       setDeviceLocales(tester, const [Locale('fr', 'FR')]);
       SharedPreferences.setMockInitialValues({'preferred_locale_tag': 'en'});
       final settings = await loadSettings(tester);
-      await tester.pumpWidget(Spliit2GoApp(
+      await tester.pumpWidget(GoDutchApp(
         settings: settings,
         home: Builder(
           builder: (context) =>

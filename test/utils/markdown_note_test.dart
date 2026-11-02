@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/utils/markdown_note.dart';
+import 'package:godutch/utils/markdown_note.dart';
 
 // Issue #311: a note opts in to markdown by its first line.
 void main() {

@@ -7,21 +7,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/main.dart';
-import 'package:spliit2go/widgets/group_monogram.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_form/currency_card.dart';
-import 'package:spliit2go/screens/expense_form/split_card.dart';
-import 'package:spliit2go/screens/expense_screen.dart';
-import 'package:spliit2go/services/exchange_rates.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/app_switch.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
-import 'package:spliit2go/widgets/segmented_pill.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/main.dart';
+import 'package:godutch/widgets/group_monogram.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_form/currency_card.dart';
+import 'package:godutch/screens/expense_form/split_card.dart';
+import 'package:godutch/screens/expense_screen.dart';
+import 'package:godutch/services/exchange_rates.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/app_switch.dart';
+import 'package:godutch/widgets/grouped_section.dart';
+import 'package:godutch/widgets/segmented_pill.dart';
 import '../../support/test_db.dart';
 
 // #263: the form passes Flutter's tap-target and label guidelines, for an
@@ -51,9 +51,9 @@ void main() {
     );
     await db.cacheGroup(lisbon);
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme.copyWith(platform: platform),
+      theme: goDutchLightTheme.copyWith(platform: platform),
       // The app's, so icons grow with the text as they do in it (#294).
-      builder: spliit2goAppBuilder,
+      builder: goDutchAppBuilder,
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

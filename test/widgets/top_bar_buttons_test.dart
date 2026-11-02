@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/top_bar_buttons.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/top_bar_buttons.dart';
 
 // #228: top bar buttons on a card, as iOS 26's toolbars.
 void main() {
@@ -12,7 +12,7 @@ void main() {
     tester.view.physicalSize = const Size(width, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final theme = (base ?? spliit2goLightTheme).copyWith(platform: platform);
+    final theme = (base ?? goDutchLightTheme).copyWith(platform: platform);
     await tester.pumpWidget(MaterialApp(
       theme: theme,
       home: const Scaffold(body: Text('first')),
@@ -91,7 +91,7 @@ void main() {
     final more = [IconButton(icon: const Icon(Icons.more_horiz), onPressed: () {})];
     await pumpBar(tester, more);
     expect(edge(), BorderSide.none);
-    await pumpBar(tester, more, base: spliit2goDarkTheme);
+    await pumpBar(tester, more, base: goDutchDarkTheme);
     expect(edge().width, 0.5);
   });
 }

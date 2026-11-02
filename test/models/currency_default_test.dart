@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/currency.dart';
+import 'package:godutch/models/currency.dart';
 
 // Issue #115: a new group starts in the phone region's currency when
 // Spliit supports it, otherwise US dollars.

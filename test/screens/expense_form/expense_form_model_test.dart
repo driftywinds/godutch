@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/default_split.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_form/expense_form_model.dart';
+import 'package:godutch/models/default_split.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_form/expense_form_model.dart';
 
 // #258: the add/edit expense form's state and arithmetic, without widgets.
 void main() {

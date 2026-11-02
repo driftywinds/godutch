@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/services/expense_search.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/services/expense_search.dart';
 
 // Issue #39: search matches titles, case-insensitively, like Spliit's
 // server-side filter (`contains`, `mode: 'insensitive'`).

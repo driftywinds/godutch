@@ -6,16 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/main.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/screens/group_list_screen.dart';
-import 'package:spliit2go/screens/group_screen.dart';
-import 'package:spliit2go/screens/join_group_screen.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/main.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/screens/group_list_screen.dart';
+import 'package:godutch/screens/group_screen.dart';
+import 'package:godutch/screens/join_group_screen.dart';
 
 import 'support/error_log.dart';
 

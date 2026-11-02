@@ -4,11 +4,11 @@ Ready to paste into Play Console and App Store Connect (#112). Limits are the st
 
 ## Both stores
 
-- **App name:** Spliit2Go
+- **App name:** Go Dutch
 - **Category:** Finance
-- **Contact email:** spliit2go-support@sharneng.com. Use this address publicly, not `support@sharneng.com`: it belongs to the app alone, so it can be redirected if the app is ever handed over to the Spliit project.
-- **Support URL / website:** https://github.com/sharneng/spliit2go/issues
-- **Privacy policy URL:** https://github.com/sharneng/spliit2go/blob/main/docs/privacy.md
+- **Contact email:** the developer's public support address (fill in the Play Console/App Store Connect field).
+- **Support URL / website:** https://github.com/driftywinds/godutch/issues
+- **Privacy policy URL:** https://github.com/driftywinds/godutch/blob/main/docs/privacy.md
 
 ## Google Play
 
@@ -21,9 +21,9 @@ Split group expenses with Spliit, even offline. Unofficial community app.
 **Full description** (4000 max, about 1760 used; say "no tracking", not "no analytics": Play's Data safety form lists ML Kit's diagnostics under Analytics):
 
 ```
-Spliit2Go is a mobile app for Spliit, the free and open-source way to share expenses with friends, roommates and travel companions. It works with groups on spliit.app or on your own Spliit server.
+Go Dutch is a mobile app for Spliit Cloud, the account-based way to share expenses with friends, roommates and travel companions. It works with your Spliit Cloud account, or with a self-hosted Cloud instance.
 
-Spliit2Go is an unofficial community client. It is not made by or affiliated with the Spliit project; it talks to Spliit's public API.
+Go Dutch is an unofficial community client. It is not made by or affiliated with the Spliit project; it talks to the Spliit Cloud API.
 
 WORKS OFFLINE
 • Your groups, expenses and balances stay on your phone, so you can check them with no connection.
@@ -45,16 +45,16 @@ BALANCES AND STATS
 • The group's activity log shows who changed what.
 
 ALL YOUR GROUPS
-• Join a group by pasting its link, or create a new one.
-• Groups on different Spliit servers live side by side.
-• Favorite, archive and sort your groups; share a group's link with friends.
+• Join a group with its invite link, or create a new one.
+• Every group your account belongs to, synced across devices.
+• Favorite, archive and sort your groups; share an invite link with friends.
 
 PRIVATE BY DESIGN
-• No account, no ads, no tracking.
-• Your group data goes only to the group's Spliit server.
+• No ads, no tracking.
+• Your account and group data go only to the Cloud instance you use.
 • Available in English, French and Simplified Chinese.
 
-Spliit2Go is open source (MIT): https://github.com/sharneng/spliit2go
+Go Dutch is open source (MIT): https://github.com/driftywinds/godutch
 Learn more about Spliit at https://spliit.app
 ```
 
@@ -69,7 +69,7 @@ Share expenses, even offline
 **Promotional text** (170 max):
 
 ```
-An unofficial community app for Spliit, the free and open-source way to share expenses. Works offline; no account, no ads.
+An unofficial community app for Spliit Cloud, the account-based way to share expenses. Works offline; no ads.
 ```
 
 **Keywords** (100 max, comma-separated, 90 used; the name and category are indexed already, and other apps' names aren't allowed):

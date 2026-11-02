@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/services/error_reporting.dart';
+import 'package:godutch/services/error_reporting.dart';
 
 /// Unexpected errors in tests (#133). A passing run prints nothing: every
 /// test gets a fresh [ErrorReporter.instance] that collects what it would

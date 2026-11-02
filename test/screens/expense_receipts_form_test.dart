@@ -8,16 +8,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_form/currency_card.dart';
-import 'package:spliit2go/screens/expense_screen.dart';
-import 'package:spliit2go/services/receipt_cache.dart';
-import 'package:spliit2go/services/receipt_photo.dart';
-import 'package:spliit2go/sync/outbox.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_form/currency_card.dart';
+import 'package:godutch/screens/expense_screen.dart';
+import 'package:godutch/services/receipt_cache.dart';
+import 'package:godutch/services/receipt_photo.dart';
+import 'package:godutch/sync/outbox.dart';
 
 import '../support/error_log.dart';
 
@@ -507,14 +507,14 @@ void main() {
 
     await addReceipt(tester, from: 'Take photo');
 
-    expect(find.text('Camera access is off for Spliit2Go.'), findsOneWidget);
+    expect(find.text('Camera access is off for Go Dutch.'), findsOneWidget);
     expect(find.text("Couldn't add this photo."), findsNothing);
     expect(find.text('Details'), findsNothing);
-    expect(find.textContaining('restarts Spliit2Go'), findsOneWidget);
+    expect(find.textContaining('restarts Go Dutch'), findsOneWidget);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(opened, 1);
-    expect(find.text('Camera access is off for Spliit2Go.'), findsNothing);
+    expect(find.text('Camera access is off for Go Dutch.'), findsNothing);
     expect(loggedUnexpectedErrors, isEmpty);
     expect(s.requests.where((r) => r.url.path == '/api/s3-upload'), isEmpty);
     await closeTree(tester);
@@ -529,13 +529,13 @@ void main() {
 
     await addReceipt(tester);
 
-    expect(find.text('Photo access is off for Spliit2Go.'), findsOneWidget);
+    expect(find.text('Photo access is off for Go Dutch.'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
-    expect(find.textContaining('restarts Spliit2Go'), findsNothing);
+    expect(find.textContaining('restarts Go Dutch'), findsNothing);
     expect(loggedUnexpectedErrors, isEmpty);
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    expect(find.text('Photo access is off for Spliit2Go.'), findsNothing);
+    expect(find.text('Photo access is off for Go Dutch.'), findsNothing);
     await closeTree(tester);
   });
 
@@ -554,7 +554,7 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Camera access is off for Spliit2Go.'), findsNothing);
+    expect(find.text('Camera access is off for Go Dutch.'), findsNothing);
     expect(opened, 0);
     await closeTree(tester);
   });

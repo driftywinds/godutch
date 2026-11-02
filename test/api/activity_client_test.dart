@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/api/cloud_connection.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/models/activity.dart';
+import 'package:godutch/api/cloud_connection.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/models/activity.dart';
 
 void main() {
   group('ActivityType.fromWire', () {

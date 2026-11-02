@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/screens/expense_form/rate_field.dart';
+import 'package:godutch/screens/expense_form/rate_field.dart';
 
 // #289: the exchange rate's field on its own, without the form.
 void main() {

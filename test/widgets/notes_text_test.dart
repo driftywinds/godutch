@@ -2,9 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/utils/markdown_note.dart';
-import 'package:spliit2go/widgets/notes_text.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/utils/markdown_note.dart';
+import 'package:godutch/widgets/notes_text.dart';
 
 // Issue #311: links tappable in every note, markdown only when opted in.
 void main() {

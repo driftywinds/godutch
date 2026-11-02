@@ -1,9 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/default_split.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/default_split.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
 
 void main() {
   late AppDatabase db;

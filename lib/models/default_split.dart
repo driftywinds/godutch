@@ -4,7 +4,7 @@ import '../models/group.dart';
 /// How a group's expenses are usually divided, remembered locally so the
 /// next new expense in that group starts there instead of from scratch
 /// every time (issue #29). A local port of spliit-ios's own `DefaultSplit`
-/// -- this is a spliit2go/spliit-ios-only feature: the
+/// -- this is a Go Dutch/spliit-ios-only feature: the
 /// `saveDefaultSplittingOptions` flag this app already sends to the
 /// server on every save is read by nobody server-side (confirmed against
 /// spliit-ios's own doc comment on the equivalent type) -- what remembers

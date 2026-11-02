@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import '../l10n/context_l10n.dart';
 import '../services/error_reporting.dart';
 
-const _channel = MethodChannel('com.sharneng.spliit2go/paste_link');
+const _channel = MethodChannel('com.dwprod.godutch/paste_link');
 
 /// Whether the clipboard probably holds a link (#221), asked without
 /// reading it: iOS shows no "pasted from" notice, Android no toast.
@@ -50,7 +50,7 @@ class _PasteLinkButtonState extends State<PasteLinkButton> {
   }
 
   void _viewCreated(int id) {
-    _viewChannel = MethodChannel('com.sharneng.spliit2go/paste_button_$id')
+    _viewChannel = MethodChannel('com.dwprod.godutch/paste_button_$id')
       ..setMethodCallHandler((call) async {
         if (call.method == 'pasted' && call.arguments is String) widget.onPaste(call.arguments as String);
       });
@@ -66,7 +66,7 @@ class _PasteLinkButtonState extends State<PasteLinkButton> {
         child: SizedBox.square(
           dimension: PasteLinkButton.size,
           child: UiKitView(
-            viewType: 'com.sharneng.spliit2go/paste_button',
+            viewType: 'com.dwprod.godutch/paste_button',
             creationParams: {
               'background': scheme.primary.toARGB32(),
               'foreground': scheme.onPrimary.toARGB32(),

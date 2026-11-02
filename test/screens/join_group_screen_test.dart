@@ -8,12 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/screens/join_group_screen.dart';
-import 'package:spliit2go/services/error_reporting.dart';
-import 'package:spliit2go/services/date_span_calculator.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/screens/join_group_screen.dart';
+import 'package:godutch/services/error_reporting.dart';
+import 'package:godutch/services/date_span_calculator.dart';
 
 import '../support/error_log.dart';
 import '../support/test_db.dart';
@@ -472,7 +472,7 @@ void main() {
       await pumpJoin(tester, hasLink: [true]);
       final view = tester.widget<UiKitView>(find.byType(UiKitView));
       view.onPlatformViewCreated!(7);
-      const name = 'com.sharneng.spliit2go/paste_button_7';
+      const name = 'com.dwprod.godutch/paste_button_7';
 
       // Answered while there's a handler; no answer once it's gone.
       Future<bool> answered() async {

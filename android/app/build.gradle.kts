@@ -13,11 +13,11 @@ plugins {
 // (Android)". Without the file, dev release builds are signed with the
 // debug key, so anyone can still build and run one locally; prod release
 // builds refuse to build (#219).
-// scripts/check_android_flavors points it elsewhere (-Pspliit2go.keyProperties)
+// scripts/check_android_flavors points it elsewhere (-Pgodutch.keyProperties)
 // to test with and without a key, leaving the real file alone.
 val keyProperties = Properties().apply {
     val file = rootProject.file(
-        providers.gradleProperty("spliit2go.keyProperties").getOrElse("key.properties"))
+        providers.gradleProperty("godutch.keyProperties").getOrElse("key.properties"))
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val hasUploadKey = !keyProperties.isEmpty
@@ -73,7 +73,7 @@ if (gitCommit.isEmpty() || gitCommit.endsWith("?")) {
 }
 
 android {
-    namespace = "com.sharneng.spliit2go"
+    namespace = "com.dwprod.godutch"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -83,7 +83,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.sharneng.spliit2go"
+        applicationId = "com.dwprod.godutch"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -127,12 +127,12 @@ android {
         create("dev") {
             dimension = "app"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "Spliit2Go Dev")
+            resValue("string", "app_name", "Go Dutch Dev")
             signingConfig = signingConfigs.getByName("debug")
         }
         create("prod") {
             dimension = "app"
-            resValue("string", "app_name", "Spliit2Go")
+            resValue("string", "app_name", "Go Dutch")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }

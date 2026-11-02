@@ -1,4 +1,4 @@
-package com.sharneng.spliit2go
+package com.dwprod.godutch
 
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -19,13 +19,13 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ReceiptScanChannel.NAME)
             .setMethodCallHandler(channel)
         // The commit this build is from (#176), set by build.gradle.kts.
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.sharneng.spliit2go/build_info")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.dwprod.godutch/build_info")
             .setMethodCallHandler { call, result ->
                 if (call.method == "gitCommit") result.success(BuildConfig.GIT_COMMIT) else result.notImplemented()
             }
         // The Join screen's paste suggestion (#221): whether the clipboard
         // probably holds a link, from its description, without reading it.
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.sharneng.spliit2go/paste_link")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.dwprod.godutch/paste_link")
             .setMethodCallHandler { call, result ->
                 if (call.method == "probablyHasLink") result.success(clipboardProbablyHasLink())
                 else result.notImplemented()

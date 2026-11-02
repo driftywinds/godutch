@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/balance.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/services/balance_calculator.dart';
+import 'package:godutch/models/balance.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/services/balance_calculator.dart';
 
 void main() {
   const alex = Participant(id: 'alex', name: 'Alex');

@@ -131,7 +131,7 @@ class PlatformReceiptScanner implements ReceiptScanner {
 
   SettingsService get _settings => settings ?? SettingsService();
 
-  static const _channel = MethodChannel('com.sharneng.spliit2go/receipt_scan');
+  static const _channel = MethodChannel('com.dwprod.godutch/receipt_scan');
 
   @override
   bool get isSupported =>

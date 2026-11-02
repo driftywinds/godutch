@@ -1,4 +1,4 @@
-package com.sharneng.spliit2go
+package com.dwprod.godutch
 
 import android.app.Activity
 import android.content.Intent
@@ -57,7 +57,7 @@ import io.flutter.plugin.common.MethodChannel
  */
 class ReceiptScanChannel(private val activity: Activity) : MethodChannel.MethodCallHandler {
     companion object {
-        const val NAME = "com.sharneng.spliit2go/receipt_scan"
+        const val NAME = "com.dwprod.godutch/receipt_scan"
         private const val SCAN_REQUEST = 0x5ca9
     }
 

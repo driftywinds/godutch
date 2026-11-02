@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, Widget section, {ThemeData? theme}) async {
     await tester.pumpWidget(MaterialApp(
-      theme: theme ?? spliit2goLightTheme,
+      theme: theme ?? goDutchLightTheme,
       home: Scaffold(body: ListView(children: [section])),
     ));
   }
@@ -59,7 +59,7 @@ void main() {
   // #213: as iOS's and One UI's.
   testWidgets('the lines: the page\'s color in light, the card\'s lighter in dark, a point thick',
       (tester) async {
-    for (final theme in [spliit2goLightTheme, spliit2goDarkTheme]) {
+    for (final theme in [goDutchLightTheme, goDutchDarkTheme]) {
       await pump(
         tester,
         const GroupedSection(children: [
@@ -104,7 +104,7 @@ void main() {
           GroupedRow(title: const Text('About'), navigates: true, onTap: () {}),
           GroupedRow(title: const Text('Plain'), onTap: () {}),
         ]),
-        theme: spliit2goLightTheme.copyWith(platform: platform),
+        theme: goDutchLightTheme.copyWith(platform: platform),
       );
       expect(find.byIcon(Icons.chevron_right), findsOneWidget, reason: '$platform');
     }
@@ -118,7 +118,7 @@ void main() {
       ]),
     );
     final icon = tester.widget<Icon>(find.byIcon(Icons.chevron_right));
-    expect(icon.color, spliit2goLightTheme.colorScheme.onSurface.withValues(alpha: 0.3));
+    expect(icon.color, goDutchLightTheme.colorScheme.onSurface.withValues(alpha: 0.3));
     final card = tester.getRect(find.byType(Material).last);
     final chevron = tester.getRect(find.byIcon(Icons.chevron_right));
     // The row's trailing end is the card's inset, as its leading end.
@@ -137,7 +137,7 @@ void main() {
   });
 
   testWidgets('cards stand off the page in light and dark', (tester) async {
-    for (final theme in [spliit2goLightTheme, spliit2goDarkTheme]) {
+    for (final theme in [goDutchLightTheme, goDutchDarkTheme]) {
       await pump(tester, const GroupedSection(children: [GroupedRow(title: Text('Row'))]),
           theme: theme);
       final context = tester.element(find.text('Row'));
@@ -151,7 +151,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme,
+      theme: goDutchLightTheme,
       home: MediaQuery(
         data: const MediaQueryData(textScaler: TextScaler.linear(2)),
         child: Scaffold(
@@ -188,7 +188,7 @@ void main() {
   testWidgets('a grouped list scrolls out through rounded edges at the cards\' inset (#193)',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      theme: spliit2goLightTheme,
+      theme: goDutchLightTheme,
       home: Scaffold(
         body: GroupedScrollClip(
           child: ListView(children: const [

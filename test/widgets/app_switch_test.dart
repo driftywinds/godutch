@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/widgets/app_switch.dart';
+import 'package:godutch/widgets/app_switch.dart';
 
 // Drawn at iOS 26's height, taking only that room; its taps reach over
 // the padding around it to 48pt (Kenneth, 2026-10-13).

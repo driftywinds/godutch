@@ -28,14 +28,25 @@ TITLE = (0x56, 0xBC, 0x9C)
 INK = (0x0F, 0x3D, 0x36)
 MUTED = (0x3B, 0x6B, 0x63)
 
-FONT_DIR = Path('/System/Library/Fonts/Supplemental')
-BOLD = FONT_DIR / 'Arial Bold.ttf'
-REGULAR = FONT_DIR / 'Arial.ttf'
+FONT_DIRS = [Path('/System/Library/Fonts/Supplemental'), Path('C:/Windows/Fonts')]
+
+
+def _font(candidates):
+    for directory in FONT_DIRS:
+        for name in candidates:
+            path = directory / name
+            if path.exists():
+                return path
+    raise SystemExit(f'No usable font found among {candidates}')
+
+
+BOLD = _font(['Arial Bold.ttf', 'arialbd.ttf'])
+REGULAR = _font(['Arial.ttf', 'arial.ttf'])
 
 # Keyed by the raw file's name without extension; per platform where the
 # shot differs.
 CAPTIONS = {
-    '01-groups': 'All your groups,\non any Spliit server',
+    '01-groups': 'All your groups,\nsynced and offline',
     '02-expenses': 'Works offline:\nadd expenses anywhere',
     '03-details': 'Every detail,\nreceipts included',
     '04-balances': 'See who owes whom,\nsettle in one tap',
@@ -115,10 +126,10 @@ def feature_graphic():
     canvas.paste(icon, (70, 100), rounded(icon, 66))
 
     left = 420
-    draw.text((left, 128), 'Spliit2Go', font=ImageFont.truetype(str(BOLD), 92), fill=TITLE)
+    draw.text((left, 128), 'Go Dutch', font=ImageFont.truetype(str(BOLD), 92), fill=TITLE)
     draw.multiline_text((left, 252), 'Share expenses with friends,\neven offline.',
                         font=ImageFont.truetype(str(BOLD), 40), fill=INK, spacing=12)
-    draw.text((left, 378), 'An unofficial client for Spliit',
+    draw.text((left, 378), 'An unofficial client for Spliit Cloud',
               font=ImageFont.truetype(str(REGULAR), 28), fill=MUTED)
     path = STORE / 'feature-graphic.png'
     canvas.save(path, optimize=True)

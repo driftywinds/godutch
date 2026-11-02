@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/services/date_only.dart';
+import 'package:godutch/services/date_only.dart';
 
 void main() {
   group('dateOnlyFromUtcMidnight', () {

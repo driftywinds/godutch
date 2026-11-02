@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/services/error_reporting.dart';
-import 'package:spliit2go/widgets/error_message.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/services/error_reporting.dart';
+import 'package:godutch/widgets/error_message.dart';
 
 import '../support/error_log.dart';
 

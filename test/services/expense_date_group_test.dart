@@ -1,8 +1,8 @@
 import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/services/expense_date_group.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/services/expense_date_group.dart';
 
 // Mirrors spliit-ios's ExpenseDateGroupTests (same fixed "today", same
 // cases), plus the edges written up on issue #88.

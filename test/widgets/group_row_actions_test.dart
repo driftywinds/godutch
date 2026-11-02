@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/l10n/context_l10n.dart';
-import 'package:spliit2go/widgets/group_row_actions.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/l10n/context_l10n.dart';
+import 'package:godutch/widgets/group_row_actions.dart';
 
 void main() {
   for (final direction in [-1.0, 1.0]) {

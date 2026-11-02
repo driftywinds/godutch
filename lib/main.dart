@@ -46,7 +46,7 @@ Future<void> main() async {
     const PlatformReceiptScanner(),
     phoneScript: ReceiptScript.forLanguage(WidgetsBinding.instance.platformDispatcher.locale.languageCode),
   ).start();
-  runApp(Spliit2GoApp(
+  runApp(GoDutchApp(
       settings: settings,
       home: AppRoot(
         connection: connection,
@@ -59,8 +59,8 @@ Future<void> main() async {
 /// details sheet from above the Navigator (see UncaughtErrorPresenter).
 final appNavigatorKey = GlobalKey<NavigatorState>();
 
-class Spliit2GoApp extends StatelessWidget {
-  const Spliit2GoApp({super.key, required this.settings, this.home});
+class GoDutchApp extends StatelessWidget {
+  const GoDutchApp({super.key, required this.settings, this.home});
 
   final AppSettings settings;
 
@@ -97,10 +97,10 @@ class Spliit2GoApp extends StatelessWidget {
           // app -- text, and every formatter that reads
           // Localizations.localeOf(context) -- with no restart.
           locale: settings.locale,
-          theme: spliit2goLightTheme,
-          darkTheme: spliit2goDarkTheme,
-          highContrastTheme: spliit2goLightHighContrastTheme,
-          highContrastDarkTheme: spliit2goDarkHighContrastTheme,
+          theme: goDutchLightTheme,
+          darkTheme: goDutchDarkTheme,
+          highContrastTheme: goDutchLightHighContrastTheme,
+          highContrastDarkTheme: goDutchDarkHighContrastTheme,
           themeMode: settings.themeMode,
           home: home ?? const AppRoot(),
           // Issue #24: modern Android (edge-to-edge is mandatory starting
@@ -128,7 +128,7 @@ class Spliit2GoApp extends StatelessWidget {
           builder: (context, child) => UncaughtErrorPresenter(
             reporter: ErrorReporter.instance,
             navigatorKey: appNavigatorKey,
-            child: spliit2goAppBuilder(context, child),
+            child: goDutchAppBuilder(context, child),
           ),
         ),
       ),
@@ -141,10 +141,10 @@ class Spliit2GoApp extends StatelessWidget {
 /// explained in the comment above) is unit-testable directly with a
 /// throwaway `home`, without booting the real app's `_Root` and its
 /// live AppDatabase/sqlite connection.
-Widget spliit2goAppBuilder(BuildContext context, Widget? child) {
+Widget goDutchAppBuilder(BuildContext context, Widget? child) {
   final theme = Theme.of(context);
   return AnnotatedRegion<SystemUiOverlayStyle>(
-    value: spliit2goSystemUiOverlayStyle(theme),
+    value: goDutchSystemUiOverlayStyle(theme),
     child: Container(
       color: theme.scaffoldBackgroundColor,
       // Icons grow with the text size (#294), as text does: in the theme,

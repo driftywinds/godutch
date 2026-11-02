@@ -2,7 +2,7 @@
 
 **Decided:** Flutter (Dart). Build the Android app first; the same codebase can target iOS later since Flutter is cross-platform, unlike the current native effort.
 
-**Project name:** `spliit2go` — [github.com/sharneng/spliit2go](https://github.com/sharneng/spliit2go). "2go" signals the offline/on-the-go angle that's the point of the app; distinct enough from `spliit-ios`/`spliit-mobile`/`spliit-web` and from the unrelated "Spliiit" App Store app.
+**Project name:** Go Dutch — [github.com/driftywinds/godutch](https://github.com/driftywinds/godutch). It is a rebranded fork of spliit2go ([github.com/sharneng/spliit2go](https://github.com/sharneng/spliit2go)), whose "2go" signals the offline/on-the-go angle that's the point of the app; distinct enough from `spliit-ios`/`spliit-mobile`/`spliit-web` and from the unrelated "Spliiit" App Store app.
 
 ## Context
 

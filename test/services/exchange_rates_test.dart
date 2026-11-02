@@ -4,8 +4,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/services/exchange_rates.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/services/exchange_rates.dart';
 
 import '../support/error_log.dart';
 

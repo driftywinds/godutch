@@ -1,9 +1,22 @@
 # Third-party notices
 
-Spliit2Go is a Dart rewrite, but some of its rules were ported closely from
-Spliit's own apps. Both are MIT licensed, and their notices follow. The app
+Go Dutch is a rebranded fork of [spliit2go](https://github.com/sharneng/spliit2go),
+a Dart rewrite of Spliit; spliit2go's MIT notice is preserved in [`LICENSE`](LICENSE)
+and on the app's licenses page. Some of its rules were also ported closely from
+Spliit's own apps. All are MIT licensed, and their notices follow. The app
 shows the same notices on its licenses page (About > Open-source licenses,
 registered in `lib/legal/upstream_licenses.dart`).
+
+## spliit2go
+
+Go Dutch is a rebranded fork of spliit2go
+(https://github.com/sharneng/spliit2go).
+
+MIT License
+
+Copyright (c) 2026 spliit2go contributors
+
+The full license text is in [`LICENSE`](LICENSE).
 
 ## Spliit
 

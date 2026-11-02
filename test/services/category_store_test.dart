@@ -5,10 +5,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/category.dart';
-import 'package:spliit2go/services/category_store.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/category.dart';
+import 'package:godutch/services/category_store.dart';
 
 import '../fixtures/category_seed_ids.dart';
 import '../support/error_log.dart';

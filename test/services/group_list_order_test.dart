@@ -1,12 +1,12 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/services/date_span_calculator.dart';
-import 'package:spliit2go/services/group_list_order.dart';
-import 'package:spliit2go/services/settings_service.dart';
-import 'package:spliit2go/widgets/group_monogram.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/services/date_span_calculator.dart';
+import 'package:godutch/services/group_list_order.dart';
+import 'package:godutch/services/settings_service.dart';
+import 'package:godutch/widgets/group_monogram.dart';
 
 void main() {
   test('all four orders are descending, missing dates first, ties stable (#201)',

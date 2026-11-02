@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spliit2go/theme.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/theme.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 void main() {
   // The typography that sets the letter spacing must keep Material's text
   // colors from the scheme (onSurface), not pure black or white (#232 review).
   for (final (name, theme) in [
-    ('light', spliit2goLightTheme),
-    ('dark', spliit2goDarkTheme),
-    ('light high contrast', spliit2goLightHighContrastTheme),
-    ('dark high contrast', spliit2goDarkHighContrastTheme),
+    ('light', goDutchLightTheme),
+    ('dark', goDutchDarkTheme),
+    ('light high contrast', goDutchLightHighContrastTheme),
+    ('dark high contrast', goDutchDarkHighContrastTheme),
   ]) {
     test('text takes its colors from the scheme ($name)', () {
       final material = ThemeData(useMaterial3: true, colorScheme: theme.colorScheme).textTheme;
@@ -32,7 +32,7 @@ void main() {
         (tester) async {
       late TextTheme text;
       await tester.pumpWidget(MaterialApp(
-        theme: spliit2goLightTheme,
+        theme: goDutchLightTheme,
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -49,21 +49,21 @@ void main() {
       }
       expect(text.bodyLarge!.letterSpacing, bodyLargeLetterSpacing);
       expect(bodyLargeLetterSpacing, -0.4);
-      expect(spliit2goLightTheme.listTileTheme.subtitleTextStyle!.letterSpacing, -0.2);
-      expect(spliit2goLightTheme.popupMenuTheme.labelTextStyle!.resolve({})!.letterSpacing, -0.4);
+      expect(goDutchLightTheme.listTileTheme.subtitleTextStyle!.letterSpacing, -0.2);
+      expect(goDutchLightTheme.popupMenuTheme.labelTextStyle!.resolve({})!.letterSpacing, -0.4);
       expect(text.bodyLarge!.fontSize, 16, reason: 'only the spacing changes');
     });
   }
 
   test('light and dark themes have matching brightness fields (issue #25)', () {
-    expect(spliit2goLightTheme.brightness, Brightness.light);
-    expect(spliit2goDarkTheme.brightness, Brightness.dark);
+    expect(goDutchLightTheme.brightness, Brightness.light);
+    expect(goDutchDarkTheme.brightness, Brightness.dark);
   });
 
   test('both themes are seeded from the same color, not two unrelated palettes', () {
     // Same seed hue, opposite brightness -- a real dark *variant* of
     // this app's look, not a generic Material dark theme grafted on.
-    expect(spliit2goLightTheme.colorScheme.primary, isNot(spliit2goDarkTheme.colorScheme.primary));
+    expect(goDutchLightTheme.colorScheme.primary, isNot(goDutchDarkTheme.colorScheme.primary));
     // Material 3's seeded ColorScheme.fromSeed picks a *lighter* primary
     // tone for dark mode (roughly tone 80 vs. light mode's tone 40) so
     // it reads clearly against a dark surface -- the reverse of the
@@ -71,8 +71,8 @@ void main() {
     // colors tracing back to the same emerald seed is checked by the
     // regression test below (distinct scaffold backgrounds would also
     // catch two completely unrelated ThemeData instances).
-    expect(spliit2goDarkTheme.colorScheme.primary.computeLuminance(),
-        greaterThan(spliit2goLightTheme.colorScheme.primary.computeLuminance()));
+    expect(goDutchDarkTheme.colorScheme.primary.computeLuminance(),
+        greaterThan(goDutchLightTheme.colorScheme.primary.computeLuminance()));
   });
 
   test('regression: a dark theme is actually provided, not just brightness: dark on light values',
@@ -82,35 +82,35 @@ void main() {
     // WidgetsApp's `darkTheme ?? theme` resolution), so the light and
     // dark ThemeData instances must be genuinely distinct objects with
     // distinct scaffold backgrounds, not the same ThemeData used twice.
-    expect(spliit2goLightTheme.scaffoldBackgroundColor,
-        isNot(spliit2goDarkTheme.scaffoldBackgroundColor));
+    expect(goDutchLightTheme.scaffoldBackgroundColor,
+        isNot(goDutchDarkTheme.scaffoldBackgroundColor));
   });
 
   test("primary is spliit-ios's accent exactly, in both modes (#178)", () {
-    expect(spliit2goLightTheme.colorScheme.primary, const Color(0xff059669));
-    expect(spliit2goDarkTheme.colorScheme.primary, const Color(0xff10B981));
+    expect(goDutchLightTheme.colorScheme.primary, const Color(0xff059669));
+    expect(goDutchDarkTheme.colorScheme.primary, const Color(0xff10B981));
   });
 
   test('one base background for screens, app bars and the tab bar (#186 review)', () {
-    for (final theme in [spliit2goLightTheme, spliit2goDarkTheme]) {
+    for (final theme in [goDutchLightTheme, goDutchDarkTheme]) {
       final base = theme.scaffoldBackgroundColor;
       final reason = '${theme.brightness}';
       expect(theme.appBarTheme.backgroundColor, base, reason: reason);
       expect(theme.navigationBarTheme.backgroundColor, base, reason: reason);
     }
     // Sheets too in light; in dark they stand off it (#239, below).
-    expect(spliit2goLightTheme.bottomSheetTheme.backgroundColor,
-        spliit2goLightTheme.scaffoldBackgroundColor);
+    expect(goDutchLightTheme.bottomSheetTheme.backgroundColor,
+        goDutchLightTheme.scaffoldBackgroundColor);
     // Grouped cards stand off it: lighter in light mode, a step up from
     // black in dark (#211).
-    expect(spliit2goLightTheme.scaffoldBackgroundColor,
-        spliit2goLightTheme.colorScheme.surfaceContainerLow);
-    expect(spliit2goDarkTheme.scaffoldBackgroundColor, Colors.black);
+    expect(goDutchLightTheme.scaffoldBackgroundColor,
+        goDutchLightTheme.colorScheme.surfaceContainerLow);
+    expect(goDutchDarkTheme.scaffoldBackgroundColor, Colors.black);
   });
 
   testWidgets("the app bar keeps the page's color when content scrolls under it (#188)",
       (tester) async {
-    for (final theme in [spliit2goLightTheme, spliit2goDarkTheme]) {
+    for (final theme in [goDutchLightTheme, goDutchDarkTheme]) {
       // A fresh list each time, at its top.
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(MaterialApp(
@@ -134,19 +134,19 @@ void main() {
   });
 
   test('dark sheets stand off the page with a hairline edge; light ones unchanged (#239)', () {
-    final dark = spliit2goDarkTheme.bottomSheetTheme;
-    expect(dark.backgroundColor, isNot(spliit2goDarkTheme.scaffoldBackgroundColor));
-    expect(dark.backgroundColor, isNot(GroupedSection.cardColorOf(spliit2goDarkTheme.colorScheme)));
+    final dark = goDutchDarkTheme.bottomSheetTheme;
+    expect(dark.backgroundColor, isNot(goDutchDarkTheme.scaffoldBackgroundColor));
+    expect(dark.backgroundColor, isNot(GroupedSection.cardColorOf(goDutchDarkTheme.colorScheme)));
     expect((dark.shape! as RoundedRectangleBorder).side.width, 0.5);
-    final light = spliit2goLightTheme.bottomSheetTheme;
-    expect(light.backgroundColor, spliit2goLightTheme.scaffoldBackgroundColor);
+    final light = goDutchLightTheme.bottomSheetTheme;
+    expect(light.backgroundColor, goDutchLightTheme.scaffoldBackgroundColor);
     expect(light.shape, isNull);
     expect(light.dragHandleColor, isNull);
     expect(dark.dragHandleColor, isNotNull);
   });
 
   test('add buttons are circles, in both modes (#199)', () {
-    for (final theme in [spliit2goLightTheme, spliit2goDarkTheme]) {
+    for (final theme in [goDutchLightTheme, goDutchDarkTheme]) {
       expect(theme.floatingActionButtonTheme.shape, const CircleBorder());
     }
   });
@@ -156,17 +156,17 @@ void main() {
   group('secondary content', () {
     test("Apple's secondaryLabel dimming: 60% of the light scheme's grey, #EBEBF5 in dark", () {
       final light = SpliitColors.light.secondaryContent;
-      expect(light.withValues(alpha: 1), spliit2goLightTheme.colorScheme.onSurfaceVariant);
+      expect(light.withValues(alpha: 1), goDutchLightTheme.colorScheme.onSurfaceVariant);
       expect(light.a, closeTo(0.6, 0.01));
       expect(SpliitColors.dark.secondaryContent, const Color(0x99EBEBF5));
     });
 
     test('row captions take it from the theme', () {
       for (final theme in [
-        spliit2goLightTheme,
-        spliit2goDarkTheme,
-        spliit2goLightHighContrastTheme,
-        spliit2goDarkHighContrastTheme,
+        goDutchLightTheme,
+        goDutchDarkTheme,
+        goDutchLightHighContrastTheme,
+        goDutchDarkHighContrastTheme,
       ]) {
         expect(theme.listTileTheme.subtitleTextStyle?.color,
             theme.extension<SpliitColors>()!.secondaryContent);
@@ -175,8 +175,8 @@ void main() {
 
     test('with Increase Contrast: undimmed, the schemes\' own grey, and lent/owe solid', () {
       for (final (theme, normal) in [
-        (spliit2goLightHighContrastTheme, spliit2goLightTheme),
-        (spliit2goDarkHighContrastTheme, spliit2goDarkTheme),
+        (goDutchLightHighContrastTheme, goDutchLightTheme),
+        (goDutchDarkHighContrastTheme, goDutchDarkTheme),
       ]) {
         final colors = theme.extension<SpliitColors>()!;
         expect(colors.secondaryContent, normal.colorScheme.onSurfaceVariant);
@@ -187,8 +187,8 @@ void main() {
   });
 
   test('each theme carries its own spliit-ios colors (#178)', () {
-    expect(spliit2goLightTheme.extension<SpliitColors>(), SpliitColors.light);
-    expect(spliit2goDarkTheme.extension<SpliitColors>(), SpliitColors.dark);
+    expect(goDutchLightTheme.extension<SpliitColors>(), SpliitColors.light);
+    expect(goDutchDarkTheme.extension<SpliitColors>(), SpliitColors.dark);
     expect(SpliitColors.light.moneyPositive, isNot(SpliitColors.dark.moneyPositive));
   });
 
@@ -211,13 +211,13 @@ void main() {
     expect(dark, SpliitColors.dark);
   });
 
-  group('spliit2goSystemUiOverlayStyle', () {
+  group('goDutchSystemUiOverlayStyle', () {
     test('matches the bottom nav bar to the theme\'s own background, not a fixed color', () {
-      final lightStyle = spliit2goSystemUiOverlayStyle(spliit2goLightTheme);
-      final darkStyle = spliit2goSystemUiOverlayStyle(spliit2goDarkTheme);
+      final lightStyle = goDutchSystemUiOverlayStyle(goDutchLightTheme);
+      final darkStyle = goDutchSystemUiOverlayStyle(goDutchDarkTheme);
 
-      expect(lightStyle.systemNavigationBarColor, spliit2goLightTheme.scaffoldBackgroundColor);
-      expect(darkStyle.systemNavigationBarColor, spliit2goDarkTheme.scaffoldBackgroundColor);
+      expect(lightStyle.systemNavigationBarColor, goDutchLightTheme.scaffoldBackgroundColor);
+      expect(darkStyle.systemNavigationBarColor, goDutchDarkTheme.scaffoldBackgroundColor);
     });
 
     test('disables the enforced-contrast scrim that renders as a deep black bar (issue #24)', () {
@@ -226,21 +226,21 @@ void main() {
       // unless an app explicitly opts out, which darkens whatever
       // color it was given underneath it into something close to
       // solid black.
-      expect(spliit2goSystemUiOverlayStyle(spliit2goLightTheme).systemNavigationBarContrastEnforced,
+      expect(goDutchSystemUiOverlayStyle(goDutchLightTheme).systemNavigationBarContrastEnforced,
           isFalse);
-      expect(spliit2goSystemUiOverlayStyle(spliit2goDarkTheme).systemNavigationBarContrastEnforced,
+      expect(goDutchSystemUiOverlayStyle(goDutchDarkTheme).systemNavigationBarContrastEnforced,
           isFalse);
     });
 
     test('picks nav bar icon brightness for contrast against a light background', () {
-      final style = spliit2goSystemUiOverlayStyle(spliit2goLightTheme);
+      final style = goDutchSystemUiOverlayStyle(goDutchLightTheme);
       // Brightness.dark here means dark *icons* -- correct against
-      // spliit2goLightTheme's light scaffold background.
+      // goDutchLightTheme's light scaffold background.
       expect(style.systemNavigationBarIconBrightness, Brightness.dark);
     });
 
     test('picks nav bar icon brightness for contrast against a dark background', () {
-      final style = spliit2goSystemUiOverlayStyle(spliit2goDarkTheme);
+      final style = goDutchSystemUiOverlayStyle(goDutchDarkTheme);
       expect(style.systemNavigationBarIconBrightness, Brightness.light);
     });
   });

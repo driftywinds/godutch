@@ -4,18 +4,18 @@ import 'package:flutter/rendering.dart' show SemanticsData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:spliit2go/widgets/segmented_pill.dart';
-import 'package:spliit2go/api/spliit_client.dart';
-import 'package:spliit2go/db/app_database.dart';
-import 'package:spliit2go/l10n/app_localizations.dart';
-import 'package:spliit2go/models/expense.dart';
-import 'package:spliit2go/models/group.dart';
-import 'package:spliit2go/screens/expense_form/inline_number_field.dart';
-import 'package:spliit2go/screens/expense_form/split_card.dart';
-import 'package:spliit2go/screens/expense_form/currency_card.dart';
-import 'package:spliit2go/screens/expense_screen.dart';
-import 'package:spliit2go/sync/outbox.dart';
-import 'package:spliit2go/widgets/grouped_section.dart';
+import 'package:godutch/widgets/segmented_pill.dart';
+import 'package:godutch/api/spliit_client.dart';
+import 'package:godutch/db/app_database.dart';
+import 'package:godutch/l10n/app_localizations.dart';
+import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
+import 'package:godutch/screens/expense_form/inline_number_field.dart';
+import 'package:godutch/screens/expense_form/split_card.dart';
+import 'package:godutch/screens/expense_form/currency_card.dart';
+import 'package:godutch/screens/expense_screen.dart';
+import 'package:godutch/sync/outbox.dart';
+import 'package:godutch/widgets/grouped_section.dart';
 
 // #260: who paid, and who it was for.
 void main() {
