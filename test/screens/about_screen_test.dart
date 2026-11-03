@@ -63,20 +63,20 @@ void main() {
     expect(find.text('Version 1.2.3 (45 · unknown)'), findsOneWidget);
     expect(find.byTooltip('Copy version and commit'), findsNothing);
     expect(
-        find.text('An unofficial, community-made client for Spliit and Spliit.cloud. '
-            "It isn't affiliated with or endorsed by the Spliit project."),
+        find.text('An unofficial, community-made client for Spliit.cloud. '
+            "It isn't affiliated with or endorsed by Spliit."),
         findsOneWidget);
   });
 
   testWidgets('the notice and version in French and Chinese', (tester) async {
     await pumpAbout(tester, locale: const Locale('fr'));
     expect(find.text('À propos'), findsOneWidget);
-    expect(find.textContaining('pour Spliit et Spliit.cloud'), findsOneWidget);
+    expect(find.textContaining('pour Spliit.cloud'), findsOneWidget);
     expect(find.text('Version 1.2.3 (45 · inconnu)'), findsOneWidget);
 
     await pumpAbout(tester, locale: const Locale('zh'));
     expect(find.text('关于'), findsOneWidget);
-    expect(find.textContaining('非官方 Spliit 和 Spliit.cloud 客户端'), findsOneWidget);
+    expect(find.textContaining('非官方 Spliit.cloud 客户端'), findsOneWidget);
     expect(find.text('版本 1.2.3（45 · 未知）'), findsOneWidget);
   });
 
@@ -132,7 +132,7 @@ void main() {
     });
 
     for (final title in [
-      'Spliit and Spliit.cloud',
+      'Spliit.cloud',
       'Source code',
       'Original project',
       'Help and feedback',
@@ -143,7 +143,7 @@ void main() {
       await tester.pump();
     }
     expect(opened, [
-      Uri.parse('https://spliit.app'),
+      Uri.parse('https://spliit.cloud'),
       Uri.parse('https://github.com/driftywinds/godutch'),
       Uri.parse('https://github.com/sharneng/spliit2go'),
       Uri.parse('https://github.com/driftywinds/godutch/issues'),

@@ -10,8 +10,9 @@ import '../widgets/bottom_inset.dart';
 import '../app_name.dart';
 import '../widgets/text_scaled.dart';
 
-/// Where About's links go (#109).
-const spliitUrl = 'https://spliit.app';
+/// Where About's links go (#109). Spliit.cloud is the service this app
+/// speaks to; Spliit itself (spliit.app's anonymous groups) isn't supported.
+const spliitUrl = 'https://spliit.cloud';
 const sourceCodeUrl = 'https://github.com/driftywinds/godutch';
 const supportUrl = 'https://github.com/driftywinds/godutch/issues';
 const upstreamUrl = 'https://github.com/sharneng/spliit2go';
@@ -151,7 +152,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
           ),
           const Divider(height: 32),
-          link(Icons.public, 'Spliit and Spliit.cloud', l10n.aboutSpliitSubtitle, spliitUrl),
+          link(Icons.public, 'Spliit.cloud', l10n.aboutSpliitSubtitle, spliitUrl),
           link(Icons.code, l10n.aboutSourceCode, 'github.com/driftywinds/godutch', sourceCodeUrl),
           link(Icons.history_edu, l10n.aboutUpstream, l10n.aboutUpstreamSubtitle, upstreamUrl),
           link(Icons.help_outline, l10n.aboutSupport, l10n.aboutSupportSubtitle, supportUrl),

@@ -871,8 +871,8 @@
       }
     }
   },
-  "aboutUnofficial": "An unofficial, community-made client for Spliit and Spliit.cloud. It isn't affiliated with or endorsed by the Spliit project.",
-  "aboutSpliitSubtitle": "Free, open-source expense sharing by Sebastien Castiel and contributors",
+  "aboutUnofficial": "An unofficial, community-made client for Spliit.cloud. It isn't affiliated with or endorsed by Spliit.",
+  "aboutSpliitSubtitle": "Account-based expense sharing, built on Spliit",
   "aboutSourceCode": "Source code",
   "aboutUpstream": "Original project",
   "aboutUpstreamSubtitle": "spliit2go, the code Go Dutch started from",
