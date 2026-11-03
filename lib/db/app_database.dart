@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../models/category.dart';
+import '../models/currency.dart';
 import '../models/default_split.dart';
 import '../models/expense.dart';
 import '../models/group.dart';
@@ -1363,7 +1364,7 @@ class AppDatabase extends _$AppDatabase {
       createdAt:
           g.createdAt == null ? const Value.absent() : Value(g.createdAt),
       name: g.name,
-      currency: g.currency,
+      currency: displayCurrencySymbol(g.currencyCode, g.currency),
       information: Value(g.information),
       currencyCode: Value(g.currencyCode),
       participantsJson:
@@ -1427,7 +1428,7 @@ class AppDatabase extends _$AppDatabase {
         createdAt: row.createdAt,
         name: row.name,
         information: row.information,
-        currency: row.currency,
+        currency: displayCurrencySymbol(row.currencyCode, row.currency),
         currencyCode: row.currencyCode,
         // Sorted again: a group cached before #218 kept the server's order.
         participants: participantsByName(

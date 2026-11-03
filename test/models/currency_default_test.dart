@@ -31,4 +31,12 @@ void main() {
   test('falls back to US dollars without a region', () {
     expect(defaultCurrencyFor(const Locale('fr')).code, 'USD');
   });
+
+  test('Indian rupees use the rupee sign, including legacy Cloud groups', () {
+    expect(currencyByCode('INR').symbol, '₹');
+    expect(displayCurrencySymbol('INR', 'Rs'), '₹');
+    expect(displayCurrencySymbol('INR', 'Rs.'), '₹');
+    expect(displayCurrencySymbol('INR', '₹'), '₹');
+    expect(displayCurrencySymbol('USD', r'$'), r'$');
+  });
 }

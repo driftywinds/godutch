@@ -140,6 +140,8 @@ The workflow writes a temporary `android/upload-keystore.jks` and `android/key.p
 
 The APKs are the prod app (`com.dwprod.godutch`), signed with the upload key. They are not Play bundles; build an `.aab` locally or add a separate bundle job when uploading to Play.
 
+F-Droid builds from source with its own signing key, not from these APKs. The current ML Kit receipt scanner is proprietary, so a FOSS `fdroid` flavor without it is required before submission; the build recipe and checklist are in [docs/fdroid.md](docs/fdroid.md).
+
 ## iOS
 
 The iOS project (`ios/`, added in #79) needs Xcode. It uses the same bundle ids as Android, `com.dwprod.godutch.dev` for dev and `com.dwprod.godutch` for prod (see App identity above), with a `dev` and a `prod` scheme and Debug, Release and Profile configurations for each (`Debug-dev`, `Release-prod`, and so on). It targets iOS 16 or later, and is iPhone only (#105). Plugins are integrated with Swift Package Manager, so there's no `Podfile` and no `pod install` step. Receipt scanning uses Apple's VisionKit and Vision on the iPhone (#155, `ios/Runner/ReceiptScanChannel.swift`) and ML Kit on Android (#125, `ReceiptScanChannel.kt`), each called from the app rather than through pub.dev plugins, which would bring CocoaPods back. To run it on a simulator:

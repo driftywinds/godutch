@@ -38,6 +38,21 @@ void main() {
       expect(cached.participants.map((p) => p.name), ['Jenny', 'Ken']);
     });
 
+    test('an INR group cached with the legacy Rs symbol reads back as ₹', () async {
+      const group = Group(
+        id: 'g1',
+        name: 'Pune Flat',
+        currency: 'Rs',
+        currencyCode: 'INR',
+        participants: [Participant(id: 'p1', name: 'Ken')],
+      );
+
+      await db.cacheGroup(group);
+      final cached = await db.cachedGroup('g1');
+
+      expect(cached!.currency, '₹');
+    });
+
     test('cacheGroup then cachedGroup round-trips information and currencyCode (issue #23)',
         () async {
       const group = Group(

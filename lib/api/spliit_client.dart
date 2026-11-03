@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../models/account.dart';
 import '../models/activity.dart';
 import '../models/category.dart';
+import '../models/currency.dart';
 import '../models/expense.dart';
 import '../models/group.dart';
 import '../services/device_time_zone.dart';
@@ -393,9 +394,13 @@ class SpliitClient {
       name: json['name'] as String? ?? '',
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       information: json['information'] as String?,
-      currency: ledger?['currency'] as String? ??
-          json['currency'] as String? ??
-          '\$',
+      currency: displayCurrencySymbol(
+        ledger?['currencyCode'] as String? ??
+            json['currencyCode'] as String?,
+        ledger?['currency'] as String? ??
+            json['currency'] as String? ??
+            '\$',
+      ),
       currencyCode: ledger?['currencyCode'] as String? ??
           json['currencyCode'] as String?,
       participants: participants,
@@ -459,6 +464,8 @@ class SpliitClient {
       ];
     }
     final ledger = raw['ledger'] as Map<String, dynamic>?;
+    final currencyCode = ledger?['currencyCode'] as String? ??
+        raw['currencyCode'] as String?;
     final currentMember = data['currentMember'] as Map<String, dynamic>?;
     final currentId = data['currentLedgerParticipantId'] as String?;
     final accountId = connection.account?.id;
@@ -471,11 +478,11 @@ class SpliitClient {
       name: raw['name'] as String? ?? '',
       createdAt: DateTime.tryParse(raw['createdAt'] as String? ?? ''),
       information: raw['information'] as String?,
-      currency: ledger?['currency'] as String? ??
-          raw['currency'] as String? ??
-          '\$',
-      currencyCode: ledger?['currencyCode'] as String? ??
-          raw['currencyCode'] as String?,
+      currency: displayCurrencySymbol(
+        currencyCode,
+        ledger?['currency'] as String? ?? raw['currency'] as String? ?? '\$',
+      ),
+      currencyCode: currencyCode,
       participants: participantsByName(participants),
       archived: raw['archived'] as bool? ?? false,
       emoji: raw['emoji'] as String?,

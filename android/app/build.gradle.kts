@@ -22,6 +22,11 @@ val keyProperties = Properties().apply {
 }
 val hasUploadKey = !keyProperties.isEmpty
 
+// F-Droid builds from source without our upload key. Its build metadata sets
+// ORG_GRADLE_PROJECT_fdroid=true, which lets the prod release build fall back
+// to the debug signing config; F-Droid re-signs the APK with its own key.
+val fdroidBuild = providers.gradleProperty("fdroid").isPresent
+
 // The commit this build is from, for About (#176): the full hash, with
 // "-" and the minute of the week it was built (Unix time in minutes mod
 // 10080) when tracked files have uncommitted changes, or "?" when git
@@ -149,7 +154,7 @@ android {
 // debug key (#219).
 tasks.matching { it.name == "preProdReleaseBuild" }.configureEach {
     doFirst {
-        if (!hasUploadKey) {
+        if (!hasUploadKey && !fdroidBuild) {
             throw GradleException(
                 "A prod release build needs the upload key in android/key.properties; " +
                     "see SETUP.md, \"Release build (Android)\".")

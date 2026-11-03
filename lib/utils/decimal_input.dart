@@ -78,6 +78,9 @@ RegExp _currencyAroundWith(Set<String> extra) {
   final tokens = {
     for (final c in supportedCurrencies) ...[c.code, c.symbol],
     ...extra.map((c) => c.trim()),
+    // Spliit Cloud groups created before the rupee sign may still paste "Rs".
+    'Rs',
+    'Rs.',
   }.where((t) => t.isNotEmpty).toList()
     ..sort((a, b) => b.length.compareTo(a.length));
   final token = '(?:${tokens.map(RegExp.escape).join('|')}|[A-Z]{0,2}\\p{Sc})';

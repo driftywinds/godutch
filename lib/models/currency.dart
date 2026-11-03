@@ -90,7 +90,9 @@ const List<Currency> supportedCurrencies = [
   Currency(code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK\$'),
   Currency(code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp', decimalDigits: 0),
   Currency(code: 'ILS', name: 'Israeli New Shekel', symbol: '₪'),
-  Currency(code: 'INR', name: 'Indian Rupee', symbol: 'Rs'),
+  // The rupee sign, not Spliit's legacy "Rs"; server data is normalized to
+  // this by [displayCurrencySymbol].
+  Currency(code: 'INR', name: 'Indian Rupee', symbol: '₹'),
   Currency(code: 'KRW', name: 'South Korean Won', symbol: '₩', decimalDigits: 0),
   Currency(code: 'MKD', name: 'Macedonian Denar', symbol: 'MKD'),
   Currency(code: 'MXN', name: 'Mexican Peso', symbol: 'MX\$'),
@@ -114,6 +116,19 @@ Currency currencyByCode(String? code) {
     if (c.code == code) return c;
   }
   return Currency.custom;
+}
+
+/// The symbol to show for a group or expense. Cloud stores the symbol beside
+/// the ISO code, and groups created before the rupee sign was adopted may
+/// still carry `Rs` for INR, so normalize that to `₹` wherever the app reads
+/// server data or its cache.
+String displayCurrencySymbol(String? code, String? symbol) {
+  final value = symbol ?? '';
+  final trimmed = value.trim();
+  if (code == 'INR' || trimmed == 'Rs' || trimmed == 'Rs.') {
+    return '₹';
+  }
+  return value;
 }
 
 /// The currency a new group starts in (issue #115): the one the phone's
