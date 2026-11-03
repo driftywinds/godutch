@@ -64,6 +64,11 @@ class Expenses extends Table {
   /// Cloud line items, as JSON (empty/null for a flat expense).
   TextColumn get itemsJson => text().nullable()();
 
+  /// How an itemized expense's leftover is shared, as JSON: Cloud's
+  /// `itemizedRemainder` object (see [ExpenseItemizedRemainder]). Null for
+  /// a flat expense, and for an itemized one whose items add up to it.
+  TextColumn get itemizedRemainderJson => text().nullable()();
+
   IntColumn get category => integer().withDefault(const Constant(0))();
   TextColumn get notes => text().withDefault(const Constant(''))();
   DateTimeColumn get date => dateTime()();
@@ -421,7 +426,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -629,6 +634,17 @@ class AppDatabase extends _$AppDatabase {
               if (!expenseColumns.contains(column.name)) {
                 await m.addColumn(expenses, column);
               }
+            }
+          }
+          if (from < 23) {
+            // An itemized expense's leftover, read and written with its
+            // items (only when missing, as above).
+            final columns = {
+              for (final c in await customSelect('PRAGMA table_info(expenses)').get())
+                c.read<String>('name'),
+            };
+            if (!columns.contains(expenses.itemizedRemainderJson.name)) {
+              await m.addColumn(expenses, expenses.itemizedRemainderJson);
             }
           }
         },
@@ -1332,6 +1348,9 @@ class AppDatabase extends _$AppDatabase {
         itemsJson: e.items.isEmpty
             ? const Value.absent()
             : Value(jsonEncode(e.items.map((i) => i.toJson()).toList())),
+        itemizedRemainderJson: e.itemizedRemainder == null
+            ? const Value.absent()
+            : Value(jsonEncode(e.itemizedRemainder!.toJson())),
         category: Value(e.category),
         notes: Value(e.notes),
         date: e.date,
@@ -1632,6 +1651,10 @@ class AppDatabase extends _$AppDatabase {
             for (final i in (jsonDecode(row.itemsJson!) as List))
               ExpenseItem.fromJson(i as Map<String, dynamic>),
         ],
+        itemizedRemainder: row.itemizedRemainderJson == null
+            ? null
+            : ExpenseItemizedRemainder.fromJson(
+                jsonDecode(row.itemizedRemainderJson!) as Map<String, dynamic>),
         category: row.category,
         notes: row.notes,
         date: row.date,

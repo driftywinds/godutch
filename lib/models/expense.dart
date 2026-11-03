@@ -81,24 +81,28 @@ class ExpenseShare {
 
   Map<String, dynamic> toJson() => {'participant': participantId, 'shares': shares};
 
-  /// Tolerates three different shapes for who a share belongs to,
-  /// because Spliit's own server doesn't send one consistent shape
-  /// (issue #35): `groups.expenses.list` (fetchExpenses) selects a
-  /// nested `participant: {id, name}` object; the create/update form
-  /// payload (and this class's own [toJson]) uses a bare `participant`
-  /// id string; but `groups.expenses.get` (fetchExpense, singular --
-  /// the one edit mode uses) does a plain Prisma `include: { paidFor:
-  /// true }` with no field selection, which returns the *raw join-table
-  /// row* instead: `{participantId: "...", shares: n}`, no `participant`
-  /// key at all (confirmed against spliit-web's src/lib/api.ts
-  /// `getExpense`/`getGroupExpenses`). Before this fix, parsing that
-  /// third shape via [extractParticipantId]`(json['participant'])` fed
-  /// `null` in and got back the *string* `"null"` (`null.toString()`
-  /// doesn't throw) -- which then matched no real participant, so every
-  /// "Paid for" checkbox in edit mode came up unchecked regardless of
-  /// the expense's actual split.
+  /// Tolerates the shapes this server sends for who a share belongs to,
+  /// because it doesn't send one consistent shape (issue #35): `groups.
+  /// expenses.list` (fetchExpenses) selects a nested `participant: {id,
+  /// name}` object; the create/update form payload (and this class's own
+  /// [toJson]) uses a bare `participant` id string; `groups.expenses.get`
+  /// (fetchExpense, singular -- the one edit mode uses) does a plain Prisma
+  /// `include: { paidFor: true }` with no field selection, which returns
+  /// the *raw join-table row* instead: `{participantId: "...", shares: n}`,
+  /// no `participant` key at all (confirmed against spliit-web's
+  /// src/lib/api.ts `getExpense`/`getGroupExpenses`); and Cloud's own
+  /// writes and reads use `ledgerParticipantId` (or a `ledgerParticipant`
+  /// object), which is what a line item's shares and the remainder's come
+  /// back as. Before this fix, parsing that third shape via
+  /// [extractParticipantId]`(json['participant'])` fed `null` in and got
+  /// back the *string* `"null"` (`null.toString()` doesn't throw) -- which
+  /// then matched no real participant, so every "Paid for" checkbox in edit
+  /// mode came up unchecked regardless of the expense's actual split.
   factory ExpenseShare.fromJson(Map<String, dynamic> json) => ExpenseShare(
-        participantId: extractParticipantId(json['participant'] ?? json['participantId']),
+        participantId: extractParticipantId(json['participant'] ??
+            json['participantId'] ??
+            json['ledgerParticipant'] ??
+            json['ledgerParticipantId']),
         shares: (json['shares'] as num).round(),
       );
 }
@@ -178,6 +182,11 @@ class Expense {
 
   /// Line items, as cloud returns them (empty for a flat expense).
   final List<ExpenseItem> items;
+
+  /// How the money left over after the items is shared, for an itemized
+  /// expense. Null for a flat one, and for one whose items add up to its
+  /// amount.
+  final ExpenseItemizedRemainder? itemizedRemainder;
 
   final int category;
   final String notes;
@@ -260,6 +269,7 @@ class Expense {
     this.canManageRecurrence = true,
     this.recurringSeriesId,
     this.items = const [],
+    this.itemizedRemainder,
     this.category = 0,
     this.notes = '',
     required this.date,
@@ -299,6 +309,7 @@ class Expense {
     bool? canManageRecurrence,
     String? recurringSeriesId,
     List<ExpenseItem>? items,
+    ExpenseItemizedRemainder? itemizedRemainder,
     int? category,
     String? notes,
     DateTime? date,
@@ -333,6 +344,7 @@ class Expense {
         canManageRecurrence: canManageRecurrence ?? this.canManageRecurrence,
         recurringSeriesId: recurringSeriesId ?? this.recurringSeriesId,
         items: items ?? this.items,
+        itemizedRemainder: itemizedRemainder ?? this.itemizedRemainder,
         category: category ?? this.category,
         notes: notes ?? this.notes,
         date: date ?? this.date,
@@ -396,6 +408,45 @@ class ExpenseItem {
         'splitMode': splitMode.wireValue,
         'paidFor': [for (final p in paidFor) p.toJson()],
         if (notes != null) 'notes': notes,
+      };
+}
+
+/// How an itemized expense's leftover — its amount less its items' — is
+/// shared. Cloud stores this object rather than the leftover's amount,
+/// which is worked out from the two, and adds [allocationMode] itself
+/// ("CUSTOM" when the client allocated the leftover).
+///
+/// Cloud rejects the field as null, and leaving it out of an update keeps
+/// the one already stored, so the app only sends it while there is a
+/// leftover to share.
+class ExpenseItemizedRemainder {
+  final SplitMode splitMode;
+
+  /// Cloud's own tag for how the leftover is allocated; kept as read, and
+  /// omitted until the server has given it one.
+  final String? allocationMode;
+
+  final List<ExpenseShare> paidFor;
+
+  const ExpenseItemizedRemainder({
+    this.splitMode = SplitMode.evenly,
+    this.allocationMode,
+    this.paidFor = const [],
+  });
+
+  factory ExpenseItemizedRemainder.fromJson(Map<String, dynamic> json) => ExpenseItemizedRemainder(
+        splitMode: SplitModeWire.fromWire(json['splitMode'] as String? ?? 'EVENLY'),
+        allocationMode: json['allocationMode'] as String?,
+        paidFor: [
+          for (final p in (json['paidFor'] as List? ?? const []))
+            ExpenseShare.fromJson(p as Map<String, dynamic>),
+        ],
+      );
+
+  Map<String, dynamic> toJson() => {
+        'splitMode': splitMode.wireValue,
+        if (allocationMode case final mode?) 'allocationMode': mode,
+        'paidFor': [for (final p in paidFor) p.toJson()],
       };
 }
 

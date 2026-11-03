@@ -115,6 +115,10 @@ class Outbox {
           // Uploaded when they were attached (#123).
           // Uploaded in the form (#123), and just now (#124).
           documents: [...local.documents, ...photos],
+          // The items it was added with, if any; a flat one sends none,
+          // as before.
+          items: local.items.isEmpty ? null : local.items,
+          itemizedRemainder: local.itemizedRemainder,
           // Stable across retries: Cloud's idempotency layer returns the
           // same expense if an earlier attempt committed but its response
           // was lost (#new).

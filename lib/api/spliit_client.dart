@@ -618,6 +618,10 @@ class SpliitClient {
         for (final i in json['items'] as List? ?? const [])
           if (i is Map<String, dynamic>) ExpenseItem.fromJson(i),
       ],
+      itemizedRemainder: switch (json['itemizedRemainder']) {
+        final Map<String, dynamic> remainder => ExpenseItemizedRemainder.fromJson(remainder),
+        _ => null,
+      },
       notes: json['notes'] as String? ?? '',
       date: DeviceTimeZone.dateInZone(
         _asDateTime(json['expenseDate']),
@@ -974,7 +978,12 @@ class SpliitClient {
     int? originalAmountCents,
     String? originalCurrency,
     double? conversionRate,
-    List<ExpenseItem> items = const [],
+    /// Line items, or null to leave the field out: a flat expense sends
+    /// none, and Cloud keeps whatever an update doesn't mention.
+    List<ExpenseItem>? items,
+    /// How the leftover is shared, sent only while there is one (Cloud
+    /// rejects null, and keeps the one it has when the field is left out).
+    ExpenseItemizedRemainder? itemizedRemainder,
   }) {
     final categoryId =
         isSettlement ? cloudSettlementCategoryId : cloudCategoryIdForLocal(category);
@@ -1021,7 +1030,8 @@ class SpliitClient {
           'interval': 1,
           'end': {'type': 'INDEFINITE'},
         },
-      if (items.isNotEmpty) 'items': [for (final i in items) i.toJson()],
+      if (items case final items?) 'items': [for (final i in items) i.toJson()],
+      if (itemizedRemainder case final remainder?) 'itemizedRemainder': remainder.toJson(),
     };
   }
 
@@ -1045,6 +1055,8 @@ class SpliitClient {
     String? participantId,
     List<ExpenseDocument> documents = const [],
     String? requestId,
+    List<ExpenseItem>? items,
+    ExpenseItemizedRemainder? itemizedRemainder,
   }) async {
     final timeZone = await DeviceTimeZone.name();
     final payload = _expensePayload(
@@ -1064,6 +1076,8 @@ class SpliitClient {
       originalAmountCents: originalAmountCents,
       originalCurrency: originalCurrency,
       conversionRate: conversionRate,
+      items: items,
+      itemizedRemainder: itemizedRemainder,
     );
     final data = await _mutate('groups.expenses.create', {
       'groupId': groupId,
@@ -1096,6 +1110,10 @@ class SpliitClient {
     double? conversionRate,
     String? participantId,
     int? expectedVersion,
+    /// The expense's items, as they should be after the edit: [] clears
+    /// them, null leaves the field out of the request.
+    List<ExpenseItem>? items,
+    ExpenseItemizedRemainder? itemizedRemainder,
   }) async {
     final timeZone = await DeviceTimeZone.name();
     var version = expectedVersion;
@@ -1121,6 +1139,8 @@ class SpliitClient {
       originalAmountCents: originalAmountCents,
       originalCurrency: originalCurrency,
       conversionRate: conversionRate,
+      items: items,
+      itemizedRemainder: itemizedRemainder,
     );
     final data = await _mutate('groups.expenses.update', {
       'groupId': groupId,

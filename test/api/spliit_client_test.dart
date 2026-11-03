@@ -300,6 +300,147 @@ void main() {
     ]);
     expect(expense['expenseTimeZone'], 'UTC');
     expect(DateTime.parse(expense['expenseDate']).toUtc(), DateTime.utc(2026, 2, 3, 12));
+    // A flat expense says nothing about items, as it always did.
+    expect(expense.containsKey('items'), isFalse);
+    expect(expense.containsKey('itemizedRemainder'), isFalse);
+  });
+
+  test('fetchExpense reads the items and the leftover, as Cloud sends them', () async {
+    final client = cloudClient((request) async => http.Response(
+          trpcJson({
+            'expense': {
+              'id': 'e1',
+              'title': 'Dinner',
+              'amount': 3000,
+              'expenseDate': '2026-11-03T12:00:00.000Z',
+              'expenseTimeZone': 'UTC',
+              'categoryId': 'general',
+              'splitMode': 'BY_AMOUNT',
+              'paidBySplitMode': 'BY_AMOUNT',
+              'paidByList': [
+                {'ledgerParticipantId': 'p1', 'shares': 3000}
+              ],
+              'paidFor': [
+                {'ledgerParticipantId': 'p1', 'shares': 1000},
+                {'ledgerParticipantId': 'p2', 'shares': 2000}
+              ],
+              'items': [
+                {
+                  'id': 'i1',
+                  'title': 'Starter',
+                  'unitPrice': 500,
+                  'quantity': 2000,
+                  'amount': 1000,
+                  'splitMode': 'BY_SHARES',
+                  'paidFor': [
+                    {'ledgerParticipantId': 'p1', 'shares': 300},
+                    {'ledgerParticipantId': 'p2', 'shares': 100}
+                  ],
+                },
+              ],
+              'itemizedRemainder': {
+                'splitMode': 'EVENLY',
+                'allocationMode': 'CUSTOM',
+                'paidFor': [
+                  {'ledgerParticipantId': 'p2', 'shares': 1}
+                ],
+              },
+              'version': 1,
+              'createdAt': '2026-11-03T00:00:00.000Z',
+              'notes': '',
+              'documents': [],
+            }
+          }),
+          200,
+        ));
+
+    final expense = await client.fetchExpense(groupId: 'g1', expenseId: 'e1');
+    final item = expense.items.single;
+    expect((item.id, item.title, item.amountCents, item.unitPriceCents, item.quantityMilli),
+        ('i1', 'Starter', 1000, 500, 2000));
+    expect(item.splitMode, SplitMode.byShares);
+    expect(item.paidFor.map((s) => (s.participantId, s.shares)), [('p1', 300), ('p2', 100)]);
+    final remainder = expense.itemizedRemainder!;
+    expect((remainder.splitMode, remainder.allocationMode), (SplitMode.evenly, 'CUSTOM'));
+    expect(remainder.paidFor.single.participantId, 'p2');
+  });
+
+  test('an itemized update sends its items and leftover; a flat one leaves them out',
+      () async {
+    final bodies = <Map<String, dynamic>>[];
+    final client = cloudClient((request) async {
+      bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+      return http.Response(trpcJson({'expenseId': 'e1'}), 200);
+    });
+
+    Map<String, dynamic> expenseOf(Map<String, dynamic> body) =>
+        ((body['0'] as Map)['json'] as Map<String, dynamic>)['expense'] as Map<String, dynamic>;
+
+    await client.updateExpense(
+      groupId: 'g1',
+      expenseId: 'e1',
+      title: 'Dinner',
+      amountCents: 3000,
+      paidBy: 'p1',
+      paidFor: const [ExpenseShare(participantId: 'p1', shares: 1000)],
+      documents: const [],
+      expectedVersion: 1,
+      items: const [
+        ExpenseItem(
+          id: 'i1',
+          title: 'Starter',
+          amountCents: 1000,
+          unitPriceCents: 500,
+          quantityMilli: 2000,
+          splitMode: SplitMode.byShares,
+          paidFor: [
+            ExpenseShare(participantId: 'p1', shares: 300),
+            ExpenseShare(participantId: 'p2', shares: 100),
+          ],
+        ),
+      ],
+      itemizedRemainder: const ExpenseItemizedRemainder(
+        splitMode: SplitMode.byPercentage,
+        paidFor: [ExpenseShare(participantId: 'p2', shares: 10000)],
+      ),
+    );
+    final sent = expenseOf(bodies.last);
+    expect(sent['items'], [
+      {
+        'id': 'i1',
+        'title': 'Starter',
+        'unitPrice': 500,
+        'quantity': 2000,
+        'amount': 1000,
+        'splitMode': 'BY_SHARES',
+        'paidFor': [
+          {'participant': 'p1', 'shares': 300},
+          {'participant': 'p2', 'shares': 100},
+        ],
+      }
+    ]);
+    // Cloud's own tag isn't invented when it isn't known.
+    expect(sent['itemizedRemainder'], {
+      'splitMode': 'BY_PERCENTAGE',
+      'paidFor': [
+        {'participant': 'p2', 'shares': 10000}
+      ],
+    });
+
+    // An edit that took every item away says so, so Cloud clears them.
+    await client.updateExpense(
+      groupId: 'g1',
+      expenseId: 'e1',
+      title: 'Dinner',
+      amountCents: 3000,
+      paidBy: 'p1',
+      paidFor: const [ExpenseShare(participantId: 'p1', shares: 1)],
+      documents: const [],
+      expectedVersion: 2,
+      items: const [],
+    );
+    expect(expenseOf(bodies.last)['items'], isEmpty);
+    expect(expenseOf(bodies.last).containsKey('itemizedRemainder'), isFalse);
   });
 
   test('createExpense sends every payer, each with what they paid', () async {

@@ -47,6 +47,13 @@ and `itemizedRemainder`:
   dropped when sent) — the leftover is `expense.amount − sum(items.amount)`.
   Read back, the server adds `"allocationMode": "CUSTOM"` when the client
   didn't send one.
+- It cannot be `null`: an explicit `null` is rejected the same way. Leaving
+  the field **out** of an update keeps whatever is stored, so a leftover
+  written once stays (harmlessly: with no leftover it allocates nothing).
+  The app therefore sends it only while there is a leftover, and never null.
+- `items: []` is accepted on create and on update; on update it clears the
+  expense's items. A flat create sends no `items` key at all, which keeps
+  its payload exactly what it was before itemized authoring.
 - On read, items come back with server-assigned `id`s and `paidFor` entries as
   `{ "ledgerParticipantId", "shares" }`, which is what `ExpenseItem.fromJson`
   and `_shares` already read.
