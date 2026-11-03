@@ -162,6 +162,8 @@ void main() {
 
   testWidgets('✕ takes a payer out; the last one left is the single payer again', (tester) async {
     final (_, requests) = await open(tester, editing: dinner);
+    await tester.ensureVisible(find.byKey(PayerCard.removeKey('bea')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(PayerCard.removeKey('bea')));
     await tester.pumpAndSettle();
 

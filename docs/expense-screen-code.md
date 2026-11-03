@@ -96,6 +96,10 @@ Its functions, by job:
 |---|---|---|
 | `payer_card.dart` | `PayerCard` | Paid by, or a settlement's From. One payer is a row that picks them; several are a row each with what they paid and a ✕, a row to add another, and what doesn't add up (`problem`, which `_refuse` also announces) |
 | `split_card.dart` | `SplitCard` | Paid for, or a settlement's To. The mode pill, or a menu row where it doesn't fit (`_modes`); a row per person (`_row`); a settlement's totals; and the message under it (`_hint`, and `problem`, which `_refuse` also announces) |
+| `items_card.dart` | `ItemsCard`, `ItemizedSplitCard` | The switch that itemizes an expense, its lines with what they come to and leave over (`problemText`, which `_refuse` also announces), and the card showing the split those lines work out to |
+| `item_sheet.dart` | `SplitDraftFields`, `showItemSheet`, `showLeftoverSheet`, `ItemRow`, `ItemizeSwitchRow` | One line's sheet (name, unit price, quantity, total, and its own split in all four modes), the leftover's split, and the rows the form shows |
+| `item_draft.dart` | `SplitDraft`, `ItemDraft` | A line while it's typed, and the split it (or the leftover) is shared by: the plain part of the expense's own split, reporting the same `SplitProblem`s |
+| `split_problem.dart` | `SplitProblem`, `PayerProblem`, `trimTrailingZeros` | What's wrong with a split, shared by the expense's card and each line's (`expense_form_model.dart` re-exports it) |
 | `currency_card.dart` | `CurrencyCard`, `_RateField` | Paid in, the amount, the rate row with its pair to swap, the rate's note (`_rateStatus`), and the "In {currency}" rows |
 | `rate_field.dart` | `ExchangeRateField` | The rate field's logic: which currency is first in the pair (`swap`), filling in a looked-up rate without overwriting a typed one (`fill`, `typed`), a saved rate when editing (`showSaved`) |
 | `rate_lookup.dart` | `RateLookup`, `RateLookupState` | Looks up the published rate (`lookUp`) and remembers the pair's order on this device (`swap`, `loadOrder`) |
@@ -146,6 +150,7 @@ Its functions, by job:
 - `test/screens/expense_form/expense_form_frame_test.dart`: the top bar, the cards' layout, the kind button, the keyboard.
 - `test/screens/expense_form/people_card_test.dart`: Paid by and Paid for, and what a screen reader hears.
 - `test/screens/expense_form/payer_card_test.dart`: several payers: editing one, adding and removing one, and what doesn't add up.
+- `test/screens/expense_form/items_card_test.dart`: line items: adding one, its own split, what they leave over, and an edit that sends them back.
 - `test/screens/expense_form/expense_form_a11y_test.dart`: tap targets and screen-reader labels on both platforms, large text, and what a refused save announces (#263).
 - `test/screens/expense_screen_test.dart`: whole flows: saving, editing, currencies and rates, settlements.
 - `test/screens/expense_receipt_scan_test.dart`, `expense_receipts_form_test.dart`, `expense_receipts_test.dart`: scanning and attaching receipts.

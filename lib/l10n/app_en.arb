@@ -3,6 +3,7 @@
   "commonCancel": "Cancel",
   "commonRetry": "Retry",
   "commonRequired": "Required",
+  "commonDone": "Done",
   "commonNoExpensesYet": "No expenses yet.",
   "commonDelete": "Delete",
   "groupListTitle": "Your groups",
@@ -245,6 +246,89 @@
     "placeholders": {
       "amount": {
         "type": "String"
+      }
+    }
+  },
+  "expenseItemize": "Itemise this expense",
+  "@expenseItemize": {
+    "description": "The switch that turns an expense into a list of line items."
+  },
+  "expenseItemizeHint": "Split it by what each line cost; each line can be shared by different people.",
+  "expenseItemsCaption": "Items",
+  "expenseItemsAdd": "Add item",
+  "expenseItemNew": "New item",
+  "expenseItemSheetTitle": "Item",
+  "expenseItemTitle": "What it was",
+  "expenseItemUnitPrice": "Unit price",
+  "expenseItemQuantity": "Quantity",
+  "expenseItemTotal": "Total",
+  "expenseItemSharedBy": "Shared by",
+  "expenseItemRemove": "Remove item",
+  "expenseItemQuantityTimes": "{quantity} × {price}",
+  "@expenseItemQuantityTimes": {
+    "description": "Under an item's name, how its total was worked out, e.g. '2 × €5.00'.",
+    "placeholders": {
+      "quantity": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseItemsSum": "Items {amount}",
+  "@expenseItemsSum": {
+    "description": "Under the items' card: what the items come to.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseItemsLeftover": "Left over",
+  "expenseItemsLeftoverAmount": "{amount} left over",
+  "@expenseItemsLeftoverAmount": {
+    "description": "Under the items' card: what the items don't account for, shared as the leftover says.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseItemsExact": "The items add up to the whole amount.",
+  "expenseItemsOver": "The items come to {amount} more than the expense",
+  "@expenseItemsOver": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseItemNeedsName": "Line {number} needs a name",
+  "@expenseItemNeedsName": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "expenseItemNeedsPrice": "Line {number} needs a price",
+  "@expenseItemNeedsPrice": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "expenseItemsSplitHeading": "Split by items",
+  "@expenseItemsSplitHeading": {
+    "description": "What the card showing each person's share of an itemized expense is called; the items work it out."
+  },
+  "expenseItemNotIncluded": "Line {number}: no one shares it",
+  "@expenseItemNotIncluded": {
+    "placeholders": {
+      "number": {
+        "type": "int"
       }
     }
   },

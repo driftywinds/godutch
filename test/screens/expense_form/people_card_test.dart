@@ -73,6 +73,9 @@ void main() {
     final db = await open(tester);
     expect(find.descendant(of: paidByRow(), matching: find.text('Bea (you)')), findsOneWidget);
 
+    // The items card above pushes it down, so bring it into view first.
+    await tester.ensureVisible(paidByRow());
+    await tester.pumpAndSettle();
     await tester.tap(paidByRow());
     await tester.pumpAndSettle();
     final sheet = find.byType(BottomSheet);

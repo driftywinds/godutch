@@ -54,8 +54,11 @@ errors, offline-first cache).
 - Multi-payer expenses: payer splits are cached, balances and lent/owed arrows use
   them, the details sheet lists each payer, and the form authors them (one payer
   pays the whole amount, or several each for a part that adds up to it).
-- Itemized expenses are read and displayed; comments are read/posted/deleted;
-  activity uses Cloud's event names and actor snapshots.
+- Itemized expenses are read and authored: a line each with its own unit price,
+  quantity and split (all four modes), plus how the leftover is shared. The
+  expense's own split is what those lines work out to, and the details sheet
+  lists them. Comments are read/posted/deleted, and activity uses Cloud's
+  event names and actor snapshots.
 - Cloud categories, settlement category, multi-currency conversion payload,
   simple recurring series, presigned receipt uploads, and the existing local
   receipt scan/import flows.
@@ -68,9 +71,6 @@ errors, offline-first cache).
 
 ## Known gaps
 
-- **Itemized expense authoring** is not in the form; itemized expenses are
-  read-only in the app, and editing one is blocked with an explanation instead
-  of flattening its items.
 - **Passkeys, social/OIDC, connected apps, account deletion, webhooks and
   email notification preferences** are web-managed; the account screen links
   to `{web}/account/settings`.

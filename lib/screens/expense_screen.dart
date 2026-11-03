@@ -46,6 +46,7 @@ import '../widgets/notes_text.dart';
 import '../utils/markdown_note.dart';
 import '../widgets/top_bar_buttons.dart';
 import 'expense_form/currency_card.dart';
+import 'expense_form/items_card.dart';
 import 'expense_form/payer_card.dart';
 import 'expense_form/receipt_scan_card.dart';
 import 'expense_form/rate_lookup.dart';
@@ -176,6 +177,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   /// footer, the payers', and a calculated amount that can't be saved.
   final _paidForFooterKey = GlobalKey();
   final _payerFooterKey = GlobalKey();
+  final _itemsFooterKey = GlobalKey();
   final _calculatedKey = GlobalKey();
 
   /// What's typed and picked, and what it works out to (#258). Made once
@@ -831,11 +833,21 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     calculatedKey: _calculatedKey,
                     showErrors: _hasAttemptedSave,
                   ),
-                  SplitCard(
-                      model: _m,
-                      showErrors: _hasAttemptedSave,
-                      payer: _paidBy(context),
-                      footerKey: _paidForFooterKey),
+                  // A settlement says what each person received; lines are
+                  // what an expense was made of (#item).
+                  if (!_m.isSettlement)
+                    ItemsCard(
+                        model: _m, showErrors: _hasAttemptedSave, footerKey: _itemsFooterKey),
+                  // An itemized expense's split is its lines' doing: it's
+                  // shown, not typed.
+                  if (_m.isItemized)
+                    ItemizedSplitCard(model: _m, payer: _paidBy(context))
+                  else
+                    SplitCard(
+                        model: _m,
+                        showErrors: _hasAttemptedSave,
+                        payer: _paidBy(context),
+                        footerKey: _paidForFooterKey),
                   ReceiptsCard(controller: _receipts, onAdd: _addReceipt, keepsUnsent: !widget.isEditing),
                   // Last: receipts hardly change height, notes can be long
                   // (#268). Past 12 lines they scroll inside the field.
@@ -903,8 +915,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     // Each refusal below says why on screen; the haptic says to look.
     final invalid = _formKey.currentState!.validateGranularly();
     if (invalid.isNotEmpty) return _refuse(invalid: invalid);
-    // The split first: a settlement's amount is its To amounts' sum.
-    if (_m.splitProblem() != null) return _refuse();
+    // An itemized expense's split is its lines; otherwise the split card's.
+    if (_m.isItemized) {
+      if (_m.itemizedProblem() != null) return _refuse();
+    } else if (_m.splitProblem() != null) {
+      return _refuse();
+    }
     final amounts = _m.amountsToSave();
     if (amounts == null) return _refuse();
     // Who paid: one for all of it, or several for parts that add up to it.
@@ -912,6 +928,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     if (payers == null) return _refuse();
     final paidFor = _m.paidFor();
     if (paidFor == null) return _refuse();
+    // The lines and their leftover, when it's itemized.
+    final items = _m.itemsToSave();
+    final remainder = _m.remainderToSave();
 
     // A new expense keeps photos that didn't upload, and syncs with them
     // later (#124); only ones still on their way hold it back. An edit is
@@ -926,9 +945,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     // stuck on "Saving…".
     try {
       if (widget.isEditing) {
-        await _saveEdit(amounts, paidFor);
+        await _saveEdit(amounts, paidFor, items, remainder);
       } else {
-        await _saveNew(amounts, paidFor);
+        await _saveNew(amounts, paidFor, items, remainder);
       }
     } catch (e, st) {
       final error = ErrorReporter.instance.report(e, st,
@@ -971,6 +990,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         for (final field in invalid) (field.context, field.errorText),
         if ((_m.payerProblem() != null, _payerFooterKey.currentContext) case (true, final payers?))
           (payers, PayerCard.problem(context, _m)),
+        if ((_m.itemizedProblem() != null, _itemsFooterKey.currentContext) case (true, final items?))
+          (items, ItemsCard.problemText(context, _m)),
         if ((_m.splitProblem() != null || (_m.isSettlement && _m.convertedAmountInvalid),
             _paidForFooterKey.currentContext) case (true, final footer?))
           (footer, SplitCard.problem(context, _m)),
@@ -1038,7 +1059,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     }
   }
 
-  Future<void> _saveNew(ExpenseAmounts amounts, List<ExpenseShare> paidFor) async {
+  Future<void> _saveNew(ExpenseAmounts amounts, List<ExpenseShare> paidFor, List<ExpenseItem>? items, ExpenseItemizedRemainder? remainder) async {
     final payers = _m.payers()!;
     final expense = Expense(
       id: const Uuid().v4(),
@@ -1053,6 +1074,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       // every row written before there could be more than one did.
       paidByList: payers.length > 1 ? payers : const [],
       isMultiPayer: payers.length > 1,
+      // The lines it was made of, if it was itemized; a flat one has none.
+      items: items ?? const [],
+      itemizedRemainder: remainder,
       notes: _m.notes,
       date: _m.date,
       isSettlement: _m.isSettlement,
@@ -1101,15 +1125,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   /// failure (most commonly: offline), stays on the form with an error
   /// rather than silently queuing anything, since there's no queueing
   /// path for edits.
-  Future<void> _saveEdit(ExpenseAmounts amounts, List<ExpenseShare> paidFor) async {
-    // Cloud lets an expense have line items. This form edits none; saving
-    // would flatten them away, so send the edit to the web instead.
-    if (widget.existingExpense!.items.isNotEmpty) {
-      if (mounted) {
-        showErrorSnackBar(context, context.l10n.expenseEditItemizedOnWeb);
-      }
-      return;
-    }
+  Future<void> _saveEdit(ExpenseAmounts amounts, List<ExpenseShare> paidFor, List<ExpenseItem>? items, ExpenseItemizedRemainder? remainder) async {
     final payers = _m.payers()!;
     await widget.client.updateExpense(
       groupId: widget.group.id,
@@ -1120,6 +1136,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       // Everyone who paid, each for their part: one pays it all.
       payers: payers,
       paidFor: paidFor,
+      // The lines as they stand: [] takes them all away, and a flat expense
+      // that never had any leaves the field out of the request.
+      items: items,
+      itemizedRemainder: remainder,
       splitMode: _m.splitModeToSave,
       category: _m.categoryToSave,
       notes: _m.notes,
@@ -1152,3 +1172,5 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     if (mounted) Navigator.of(context).pop(true);
   }
 }
+
+

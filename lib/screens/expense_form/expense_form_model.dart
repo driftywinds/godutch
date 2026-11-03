@@ -11,7 +11,11 @@ import '../../services/expense_shares.dart';
 import '../../utils/decimal_input.dart';
 import '../../utils/markdown_note.dart';
 import '../../utils/money.dart';
+import 'item_draft.dart';
 import 'rate_field.dart';
+import 'split_problem.dart';
+
+export 'split_problem.dart';
 
 /// What the add/edit expense form holds and works out (#258): what's
 /// typed and picked, the amounts derived from it, the conversion, the
@@ -510,6 +514,12 @@ class ExpenseFormModel extends ChangeNotifier {
         // Who paid, in order, and what each did when more than one did.
         ...payerIds,
         if (multiPayer) for (final id in payerIds) payerAmountControllers[id]!.text,
+        // The lines, and how what they leave is shared.
+        _itemized,
+        if (_itemized) ...[
+          for (final item in _items) ...item.state,
+          ..._remainderSplit.state,
+        ],
         _date,
         _category,
         _isSettlement,
@@ -559,6 +569,10 @@ class ExpenseFormModel extends ChangeNotifier {
   set decimalSeparator(String separator) {
     _decimalSeparator = separator;
     rateField.decimalSeparator = separator;
+    for (final item in _items) {
+      item.decimalSeparator = separator;
+    }
+    _remainderSplit.decimalSeparator = separator;
   }
 
   /// [parseFlexibleDecimal] with this locale's decimal separator.
@@ -891,6 +905,9 @@ class ExpenseFormModel extends ChangeNotifier {
   /// stored as an integer). [_prefillFrom]/[applyDefaultSplit] divide
   /// back by 100 to redisplay an existing value.
   List<ExpenseShare>? paidFor() {
+    // An itemized expense's split is its lines and their leftover, worked
+    // out rather than typed; Cloud stores what it's sent here.
+    if (isItemized) return _itemizedPaidFor();
     if (splitProblem() != null) return null;
     // The balance settled, exactly: converting it there and back could
     // leave a unit owed (#262, acceptance case 1).
@@ -937,8 +954,11 @@ class ExpenseFormModel extends ChangeNotifier {
         _splitUnchanged;
   }
 
-  /// The split mode to save: an untouched edit's own.
-  SplitMode get splitModeToSave => _keepsSavedSplit ? existing!.splitMode : _splitMode;
+  /// The split mode to save: an untouched edit's own, or Amount for an
+  /// itemized expense, whose shares are the exact amounts its lines work
+  /// out to.
+  SplitMode get splitModeToSave =>
+      isItemized ? SplitMode.byAmount : (_keepsSavedSplit ? existing!.splitMode : _splitMode);
 
   /// Amounts are typed in the paid-in currency (#261, #262): an expense
   /// split by amount's, adding up to the amount paid, and a settlement's
@@ -956,6 +976,166 @@ class ExpenseFormModel extends ChangeNotifier {
         _splitMode,
         for (final p in group.participants) ...[_included[p.id], splitControllers[p.id]!.text],
       ];
+
+  // ---------------------------------------------------------------------
+  // Line items.
+
+  final List<ItemDraft> _items = [];
+
+  /// The lines this expense is made of, as they're being typed.
+  List<ItemDraft> get items => List.unmodifiable(_items);
+
+  bool _itemized = false;
+
+  /// Whether this is an itemized expense: its lines, and the leftover, are
+  /// what it's split by. A settlement is never one -- switching to it keeps
+  /// the lines for switching back, as the other kind's split is kept.
+  bool get isItemized => _itemized && !_isSettlement;
+
+  /// Cloud's own tag for how the leftover is allocated, kept as read so an
+  /// edit sends back what it found.
+  String? _remainderAllocationMode;
+
+  /// Who shares what the items leave of the amount.
+  late final SplitDraft _remainderSplit = SplitDraft(
+    group: group,
+    activeUserId: activeUserId,
+    total: () => remainderCents,
+    mode: SplitMode.evenly,
+    decimalSeparator: _decimalSeparator,
+  );
+
+  SplitDraft get remainderSplit => _remainderSplit;
+
+  /// Turns itemizing on, with one line to fill in, or off.
+  void setItemized(bool value) => _set(() {
+        if (value == _itemized) return;
+        _itemized = value;
+        if (value && _items.isEmpty) _addItem();
+        if (!value) {
+          for (final item in _items) {
+            item.dispose();
+          }
+          _items.clear();
+          _remainderAllocationMode = null;
+        }
+      });
+
+  /// Adds a line, at [at] or last, and returns it.
+  ItemDraft addItem({int? at}) {
+    final item = _addItem(at: at);
+    notifyListeners();
+    return item;
+  }
+
+  ItemDraft _addItem({int? at, String id = ''}) {
+    final item = ItemDraft(
+      group: group,
+      activeUserId: activeUserId,
+      id: id,
+      decimalSeparator: _decimalSeparator,
+    );
+    for (final c in item.fields) {
+      c.addListener(_typed);
+    }
+    _items.insert(at ?? _items.length, item);
+    return item;
+  }
+
+  /// Takes a line away; the last one leaves the expense flat again.
+  void removeItem(ItemDraft item) => _set(() {
+        if (!_items.remove(item)) return;
+        item.dispose();
+        if (_items.isEmpty) _itemized = false;
+      });
+
+  /// What the lines add up to, in the group currency's smallest unit, or
+  /// null while one of them can't be worked out.
+  int? get itemsTotalCents {
+    var total = 0;
+    for (final item in _items) {
+      final amount = item.amountCents;
+      if (amount == null) return null;
+      total += amount;
+    }
+    return total;
+  }
+
+  /// What the lines leave of the amount, in the group currency's smallest
+  /// unit: negative when they come to more than it.
+  int? get remainderCents {
+    final (total, items) = (amount, itemsTotalCents);
+    if (total == null || items == null) return null;
+    return total - items;
+  }
+
+  /// What's wrong with the lines and the leftover, if anything; null while
+  /// the expense isn't itemized.
+  ItemizedProblem? itemizedProblem() {
+    if (!isItemized) return null;
+    if (_items.isEmpty) return const NoItems();
+    for (final (index, item) in _items.indexed) {
+      if (!item.hasTitle) return ItemUnfinished(index, ItemFault.name);
+      if (!item.hasPrice) return ItemUnfinished(index, ItemFault.price);
+      if (item.split.problem() case final problem?) {
+        return ItemUnfinished(index, ItemFault.split, split: problem);
+      }
+    }
+    final left = remainderCents;
+    if (left == null) return null;
+    if (left < 0) return ItemsExceedTotal(-left);
+    if (left > 0) {
+      if (_remainderSplit.problem() case final problem?) return LeftoverProblem(problem);
+    }
+    return null;
+  }
+
+  /// The lines to save: null while nothing says anything about them (a flat
+  /// expense leaves the field out), an empty list when an edit took them all
+  /// away, and the lines themselves when there are some.
+  List<ExpenseItem>? itemsToSave() {
+    if (!isItemized) {
+      final had = existing?.items.isNotEmpty ?? false;
+      return had ? const [] : null;
+    }
+    return [for (final item in _items) item.toItem()!];
+  }
+
+  /// How the leftover is shared, for saving: null while there's nothing
+  /// left over, which leaves whatever Cloud has stored alone.
+  ExpenseItemizedRemainder? remainderToSave() {
+    if (!isItemized) return null;
+    final left = remainderCents;
+    if (left == null || left <= 0) return null;
+    return ExpenseItemizedRemainder(
+      splitMode: _remainderSplit.mode,
+      allocationMode: _remainderAllocationMode,
+      paidFor: _remainderSplit.paidFor()!,
+    );
+  }
+
+  /// Everyone's share of an itemized expense: what each line works out to,
+  /// plus the leftover, as exact amounts (which is what Cloud stores).
+  List<ExpenseShare>? _itemizedPaidFor() {
+    if (itemizedProblem() != null) return null;
+    final money = <String, int>{};
+    void add(List<ExpenseShare> share, int amount, SplitMode mode) {
+      shareCentsFor(amountCents: amount, splitMode: mode, paidFor: share).forEach((id, cents) {
+        money.update(id, (was) => was + cents, ifAbsent: () => cents);
+      });
+    }
+
+    for (final item in _items) {
+      add(item.split.paidFor()!, item.amountCents!, item.split.mode);
+    }
+    if (remainderCents case final left? when left > 0) {
+      add(_remainderSplit.paidFor()!, left, _remainderSplit.mode);
+    }
+    return [
+      for (final MapEntry(:key, :value) in money.entries)
+        if (value > 0) ExpenseShare(participantId: key, shares: value),
+    ];
+  }
 
   // ---------------------------------------------------------------------
   // Saving.
@@ -1071,6 +1251,27 @@ class ExpenseFormModel extends ChangeNotifier {
       }
       if (e.conversionRate case final rate?) rateField.showSaved(rate);
     }
+    // The lines, and what their leftover is shared by: read as they were
+    // saved, so an untouched edit sends them back as they came.
+    for (final item in e.items) {
+      final draft = _addItem(id: item.id);
+      draft.titleController.text = item.title;
+      draft.unitPriceController.text = minorText(item.unitPriceCents, digits);
+      draft.quantityController.text = trimTrailingZeros(item.quantityMilli / 1000);
+      draft.split.mode = item.splitMode;
+      draft.split.loadFrom(item.paidFor);
+    }
+    if (e.items.isNotEmpty || e.itemizedRemainder != null) {
+      _itemized = true;
+      if (e.itemizedRemainder case final remainder?) {
+        _remainderAllocationMode = remainder.allocationMode;
+        _remainderSplit.mode = remainder.splitMode;
+        _remainderSplit.loadFrom(remainder.paidFor);
+      } else {
+        // No leftover of its own: everyone, as a fresh one starts.
+        _remainderSplit.loadFrom([for (final p in group.participants) ExpenseShare(participantId: p.id, shares: 1)]);
+      }
+    }
     if (identical(e, existing)) {
       // Not for a draft: it's a new expense, worked out afresh.
       _saved = (
@@ -1096,6 +1297,10 @@ class ExpenseFormModel extends ChangeNotifier {
       ...splitControllers.values, ...payerAmountControllers.values]) {
       c.dispose();
     }
+    for (final item in _items) {
+      item.dispose();
+    }
+    _remainderSplit.dispose();
     rateField.dispose();
     super.dispose();
   }
@@ -1103,6 +1308,41 @@ class ExpenseFormModel extends ChangeNotifier {
 
 /// A split as it stands: kept for the other kind while switched away.
 typedef _Split = ({SplitMode mode, Map<String, bool> included, Map<String, String> values});
+
+/// Which part of a line item is unfinished: what a refused save says.
+enum ItemFault { name, price, split }
+
+/// Why an itemized expense can't be saved; the items card says it in words.
+sealed class ItemizedProblem {
+  const ItemizedProblem();
+}
+
+/// There aren't any line items.
+class NoItems extends ItemizedProblem {
+  const NoItems();
+}
+
+/// The line at [index] isn't finished: [fault] says what's missing, and
+/// [split] what's wrong with its split.
+class ItemUnfinished extends ItemizedProblem {
+  const ItemUnfinished(this.index, this.fault, {this.split});
+  final int index;
+  final ItemFault fault;
+  final SplitProblem? split;
+}
+
+/// The lines come to [overBy] more than the expense, in the group
+/// currency's smallest unit.
+class ItemsExceedTotal extends ItemizedProblem {
+  const ItemsExceedTotal(this.overBy);
+  final int overBy;
+}
+
+/// What the lines leave can't be shared as the leftover says.
+class LeftoverProblem extends ItemizedProblem {
+  const LeftoverProblem(this.problem);
+  final SplitProblem problem;
+}
 
 /// What [ExpenseFormModel.amountsToSave] found to save.
 @immutable
@@ -1119,66 +1359,3 @@ class ExpenseAmounts {
   final double? conversionRate;
 }
 
-/// Why a split can't be saved; the screen says it in words.
-sealed class SplitProblem {
-  const SplitProblem();
-}
-
-/// Nobody is in the split.
-class NoOneIncluded extends SplitProblem {
-  const NoOneIncluded();
-}
-
-/// [participant]'s share, percentage or amount isn't a valid number.
-class InvalidValue extends SplitProblem {
-  const InvalidValue(this.participant);
-  final Participant participant;
-}
-
-/// The percentages come to [totalBasisPoints] / 100 %, not 100 %.
-class PercentagesDontAddUp extends SplitProblem {
-  const PercentagesDontAddUp(this.totalBasisPoints);
-  final int totalBasisPoints;
-}
-
-/// The amounts miss the total by [difference] (positive: short of it),
-/// in the smallest unit of [ExpenseFormModel.splitSymbol]'s currency.
-class AmountsDontAddUp extends SplitProblem {
-  const AmountsDontAddUp(this.difference);
-  final int difference;
-}
-
-/// Why who paid can't be saved; the card says it in words.
-sealed class PayerProblem {
-  const PayerProblem();
-}
-
-/// Nobody is set as having paid.
-class NoPayer extends PayerProblem {
-  const NoPayer();
-}
-
-/// [participantId]'s amount paid isn't a positive number.
-class InvalidPayerAmount extends PayerProblem {
-  const InvalidPayerAmount(this.participantId);
-  final String participantId;
-}
-
-/// The payers' amounts miss the total by [difference] (positive: short of
-/// it), in the group currency's smallest unit.
-class PayersDontAddUp extends PayerProblem {
-  const PayersDontAddUp(this.difference);
-  final int difference;
-}
-
-/// Formats a decimal to at most 2 places with no trailing zeros (or
-/// trailing decimal point) -- e.g. 1.5 stays "1.5", 2.0 becomes "2", 33.3
-/// stays "33.3". Used to redisplay a Shares/Percentage wire value and in
-/// the footer's "still to allocate" hint.
-String trimTrailingZeros(double value) {
-  var text = value.toStringAsFixed(2);
-  if (text.contains('.')) {
-    text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-  }
-  return text;
-}

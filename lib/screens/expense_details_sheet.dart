@@ -19,6 +19,7 @@ import '../services/expense_shares.dart';
 import '../sync/outbox.dart';
 import '../utils/date_format.dart';
 import '../utils/money.dart';
+import 'expense_form/split_problem.dart' show trimTrailingZeros;
 import '../widgets/notes_text.dart';
 import '../widgets/money.dart';
 import '../widgets/category_icon.dart';
@@ -896,6 +897,9 @@ class _ExpenseDetailsSheetState extends State<_ExpenseDetailsSheet> {
         ],
       );
       }),
+      // What an itemized expense was made of, under the split it works out
+      // to: each line, and what the lines leave over.
+      if (e.items.isNotEmpty) _itemsSection(context, e),
       if (e.documentCount > 0 || (_documentsOf(e)?.isNotEmpty ?? false) || _attachments.isNotEmpty) ...[
         // Before the notes, as in the form: a long note doesn't push
         // the receipts down (Kenneth, #304).
@@ -1305,6 +1309,42 @@ class _ExpenseDetailsSheetState extends State<_ExpenseDetailsSheet> {
     return Text.rich(TextSpan(children: spans), style: theme.textTheme.bodyLarge);
   }
 
+  /// The lines an itemized expense was made of, and what they leave over:
+  /// what the split above is worked out from.
+  Widget _itemsSection(BuildContext context, Expense e) {
+    final l10n = context.l10n;
+    final locale = context.appLocale;
+    final theme = Theme.of(context);
+    final currency = widget.group.currency;
+    final digits = widget.group.decimalDigits;
+    String money(int cents) => formatMoney(cents, currency, decimalDigits: digits, locale: locale);
+    final itemsTotal = e.items.fold<int>(0, (sum, item) => sum + item.amountCents);
+    final leftover = e.amountCents - itemsTotal;
+    return GroupedSection(
+      margin: _sectionMargin,
+      caption: l10n.expenseItemsCaption,
+      children: [
+        for (final item in e.items)
+          GroupedRow(
+            title: Text(item.title),
+            subtitle: item.quantityMilli == 1000
+                ? null
+                : Text(l10n.expenseItemQuantityTimes(
+                    trimTrailingZeros(item.quantityMilli / 1000),
+                    money(item.unitPriceCents),
+                  )),
+            value: Money(money(item.amountCents)),
+          ),
+        if (leftover > 0)
+          GroupedRow(
+            title: Text(l10n.expenseItemsLeftover,
+                style: TextStyle(color: SpliitColors.of(context).secondaryContent)),
+            value: Text(money(leftover), style: theme.textTheme.bodyMedium),
+          ),
+      ],
+    );
+  }
+
   /// The one person [e] was paid for, whom the sentence names in place of
   /// the Paid for list (#247); none when it was several.
   static String? _onlyRecipient(Expense e) => e.paidFor.length == 1 ? e.paidFor.single.participantId : null;
@@ -1379,3 +1419,4 @@ class _ExpenseDetailsSheetState extends State<_ExpenseDetailsSheet> {
     };
   }
 }
+
