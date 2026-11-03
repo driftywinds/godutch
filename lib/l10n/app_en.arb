@@ -42,6 +42,13 @@
     "description": "Join screen: the button in the empty URL field that pastes a copied link (Android; iOS shows its own Paste button)."
   },
   "joinGroupSubmitButton": "Join",
+  "joinGroupScanButton": "Scan QR code",
+  "qrScanTitle": "Scan invite QR code",
+  "qrScanHint": "Point the camera at a Spliit Cloud invite QR code.",
+  "qrScanNotInvite": "That QR code isn't a Spliit Cloud invite.",
+  "qrScanTorch": "Flashlight",
+  "qrScanCameraError": "The camera couldn't start. Check camera access and try again.",
+  "groupSettingsInviteQr": "Invite QR code",
   "joinGroupNotFound": "No group with that link was found on {server}. Check the link and try again.",
   "@joinGroupNotFound": {
     "placeholders": {
@@ -89,6 +96,7 @@
   "groupScreenMenuTooltip": "Group actions",
   "groupScreenMenuSettings": "Group settings",
   "groupScreenMenuShare": "Share group",
+  "groupScreenMenuQr": "Show invite QR",
   "expenseSearchHint": "Search expenses",
   "expenseSearchClear": "Clear search",
   "expenseSearchPromptTitle": "Search this group",

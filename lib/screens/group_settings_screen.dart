@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../api/spliit_client.dart';
 import '../db/app_database.dart';
@@ -22,6 +21,7 @@ import '../widgets/error_message.dart';
 import '../widgets/flag_glyph.dart';
 import '../widgets/group_monogram.dart';
 import '../widgets/grouped_section.dart';
+import '../widgets/invite_link_sheet.dart';
 import '../widgets/top_bar_buttons.dart';
 import 'join_group_screen.dart' show cacheJoinedGroup;
 
@@ -255,33 +255,10 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 
   Future<void> _showInvite(CreatedInvite invite) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: withBottomInset(context, const EdgeInsets.fromLTRB(20, 0, 20, 20)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(invite.label ?? context.l10n.groupSettingsInviteTitle,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SelectableText(invite.inviteUrl),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.share_outlined),
-              label: Text(context.l10n.recoveryShare),
-              onPressed: () => SharePlus.instance.share(ShareParams(
-                  text: invite.inviteUrl,
-                  subject: context.l10n.groupSettingsInviteTitle)),
-            ),
-          ],
-        ),
-      ),
+    await showInviteLinkSheet(
+      context,
+      inviteUrl: invite.inviteUrl,
+      title: invite.label,
     );
   }
 

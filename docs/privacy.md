@@ -60,7 +60,7 @@ Scan receipt uses Apple's VisionKit and Vision, which are part of iOS and run on
 
 ## Permissions
 
-- **Camera and photos:** only when you take or choose a receipt photo.
+- **Camera and photos:** when you take or choose a receipt photo, or scan an invite QR code.
 - **Internet:** to talk to your Spliit Cloud instance and to Frankfurter.
 
 Sharing a group's link goes through your phone's share sheet, only when you tap Share. Links on the About screen, and web links and images in expense notes, open in your browser only when you tap them: the app never downloads an image in a note.

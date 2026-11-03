@@ -35,6 +35,10 @@ dependencies:
   app_links: ^7.2.1
   flutter_slidable: ^4.0.3
   share_plus: ^13.3.0
+  # Invite QR codes: render them in the invite sheet and scan them from the
+  # Join screen (mobile_scanner uses the camera; qr_flutter is pure Dart).
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.5.0
   image_picker: ^1.2.3
   image: ^4.10.1
   package_info_plus: ^10.2.2

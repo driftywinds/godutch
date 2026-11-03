@@ -13,6 +13,7 @@ import '../widgets/bottom_inset.dart';
 import '../widgets/error_message.dart';
 import '../widgets/paste_link_button.dart';
 import 'group_settings_screen.dart';
+import 'qr_scanner_screen.dart';
 
 /// Joins a Spliit Cloud group from the invite link its members share.
 ///
@@ -92,6 +93,16 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
     _lifecycle.dispose();
     _urlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _scan() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+    );
+    if (scanned == null || !mounted) return;
+    _urlController.text = scanned;
+    setState(() => _error = null);
+    await _join();
   }
 
   Future<void> _join() async {
@@ -197,7 +208,7 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.joinGroupScreenTitle)),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: withBottomInset(context, const EdgeInsets.all(16)),
         child: Form(
           key: _formKey,
@@ -239,6 +250,12 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Text(context.l10n.joinGroupSubmitButton),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.qr_code_scanner),
+                label: Text(context.l10n.joinGroupScanButton),
+                onPressed: _joining ? null : _scan,
               ),
               const SizedBox(height: 32),
               Text(context.l10n.joinGroupOrCreate,

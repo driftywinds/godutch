@@ -38,6 +38,7 @@ import '../app_name.dart';
 import '../widgets/app_menu.dart';
 import '../widgets/top_bar_buttons.dart';
 import '../widgets/active_user_sheet.dart';
+import '../widgets/invite_link_sheet.dart';
 
 /// A single group's expenses, offline-first -- reached by pushing on top
 /// of GroupListScreen (the app's actual root; see main.dart and
@@ -391,8 +392,7 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Text(_group?.name ?? appName),
         // A meatballs menu, like spliit-ios's group toolbar (issue #3):
-        // group settings, and sharing the group's link. Room for more
-        // later (a QR code).
+        // group settings, sharing the group's link, and its invite QR.
         actions: [
           ReceiptDownloadIndicator(
             status: ReceiptDownloader.of(widget.db).status(widget.groupId),
@@ -414,6 +414,12 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
                 label: context.l10n.groupScreenMenuShare,
                 icon: Icons.adaptive.share,
                 onSelected: _shareGroup,
+              ),
+              AppMenuItem(
+                label: context.l10n.groupScreenMenuQr,
+                icon: Icons.qr_code_2,
+                enabled: _group != null,
+                onSelected: _showGroupQr,
               ),
               AppMenuItem(
                 label: context.l10n.budgetsTitle,
@@ -725,6 +731,22 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// A live shared link if one exists, otherwise a new one. Each group has
+  /// a small cap on pending links, and members should share the same one.
+  Future<String> _inviteUrl(Group group) async {
+    final invitations = await widget.client.fetchInvitations(group.id);
+    final reusable = invitations.where((i) =>
+        i.canCopyLink &&
+        i.isShared &&
+        i.status == 'PENDING' &&
+        (i.maxUses == null || i.useCount < i.maxUses!));
+    if (reusable.isNotEmpty) {
+      return widget.client.invitationUrl(
+          groupId: group.id, invitationId: reusable.first.id);
+    }
+    return (await widget.client.createInviteLink(group.id)).inviteUrl;
+  }
+
   /// Shares an invite link (Cloud groups are private; a plain group URL
   /// cannot be joined). Works offline only up to the error: creating the
   /// link is an online, admin action.
@@ -732,23 +754,34 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
     final group = _group;
     if (group == null) return;
     try {
-      // Reuse a live shared link if one exists: each group has a small
-      // cap on pending links, and members should share the same one.
-      String? url;
-      final invitations = await widget.client.fetchInvitations(group.id);
-      final reusable = invitations.where((i) =>
-          i.canCopyLink &&
-          i.isShared &&
-          i.status == 'PENDING' &&
-          (i.maxUses == null || i.useCount < i.maxUses!));
-      if (reusable.isNotEmpty) {
-        url = await widget.client.invitationUrl(
-            groupId: group.id, invitationId: reusable.first.id);
-      }
-      url ??= (await widget.client.createInviteLink(group.id)).inviteUrl;
+      final url = await _inviteUrl(group);
       if (!mounted) return;
-      final link = Uri.parse(url);
-      await widget.shareLink(link, group.name);
+      await widget.shareLink(Uri.parse(url), group.name);
+    } catch (e, st) {
+      final error = ErrorReporter.instance
+          .report(e, st, operation: 'Creating an invite link');
+      if (!mounted) return;
+      showErrorSnackBar(context,
+          e is SpliitApiException
+              ? e.userMessage
+              : context.l10n.groupScreenShareFailed,
+          diagnostics: error.diagnostics);
+    }
+  }
+
+  /// The same link as Share group, shown as a QR code other phones scan
+  /// from the Join screen.
+  Future<void> _showGroupQr() async {
+    final group = _group;
+    if (group == null) return;
+    try {
+      final url = await _inviteUrl(group);
+      if (!mounted) return;
+      await showInviteLinkSheet(
+        context,
+        inviteUrl: url,
+        title: context.l10n.groupSettingsInviteTitle,
+      );
     } catch (e, st) {
       final error = ErrorReporter.instance
           .report(e, st, operation: 'Creating an invite link');

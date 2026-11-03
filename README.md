@@ -19,7 +19,7 @@ This app speaks **only** the Spliit Cloud API. It no longer joins anonymous `spl
 
 ### Groups
 - **Synced group list:** every group the signed-in account is an active member of, cached for offline reading. Favorites are a server preference, so they follow the account to another device.
-- **Invite links:** share a copyable invite link from a group; join by pasting one. Cloud groups are private, so a plain group URL is not joinable.
+- **Invite links and QR codes:** share a copyable invite link from a group; show it as a QR code from the group menu or the invite sheet, and scan one from Join. Cloud groups are private, so a plain group URL is not joinable.
 - **Members:** account-backed members with roles; admins can promote/demote, remove members (with a balance-settling fallback), revoke pending invitations, archive/unarchive, delete the group, or leave it.
 - **Appearance and settings:** group name, notes, currency, Cloud emoji/color, creation/expense date span. Cloud locks the currency once the ledger has expenses.
 - **Friends:** people the account shares groups with, derived by Cloud.
@@ -76,7 +76,7 @@ Pushing a `v*` tag runs [`.github/workflows/android-release.yml`](.github/workfl
 
 - Passkeys, social/OIDC sign-in, connected apps and full account deletion are web-managed; the app links to `{instance}/account/settings`.
 - Itemized expenses and editing an existing multi-payer expense are displayed but not authored in the app yet; creating a new expense records one payer.
-- QR-code display/scanning and CSV/bundle import/export are not in the mobile UI yet; Cloud's web app covers them.
+- CSV/bundle import/export is not in the mobile UI yet; Cloud's web app covers it.
 - iOS cannot auto-open `spliit.cloud` links without the instance publishing an associated-domain entry for this bundle; pasting the invite or recovery link always works.
 
 ## License
