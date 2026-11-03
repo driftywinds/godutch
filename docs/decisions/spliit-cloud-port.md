@@ -51,8 +51,9 @@ errors, offline-first cache).
   outbox. New expenses replay with their original request id.
 - Cloud permissions (`canEdit`, `canDelete`) and versions; edits fetch the
   current version when needed.
-- Multi-payer reads: payer splits are cached, balances and lent/owed arrows use
-  them, and the details sheet lists each payer.
+- Multi-payer expenses: payer splits are cached, balances and lent/owed arrows use
+  them, the details sheet lists each payer, and the form authors them (one payer
+  pays the whole amount, or several each for a part that adds up to it).
 - Itemized expenses are read and displayed; comments are read/posted/deleted;
   activity uses Cloud's event names and actor snapshots.
 - Cloud categories, settlement category, multi-currency conversion payload,
@@ -67,11 +68,9 @@ errors, offline-first cache).
 
 ## Known gaps
 
-- **Authoring multi-payer expenses** is not in the form yet; existing
-  multi-payer expenses are only read. Editing one is blocked with an
-  explanation instead of collapsing it.
 - **Itemized expense authoring** is not in the form; itemized expenses are
-  read-only in the app.
+  read-only in the app, and editing one is blocked with an explanation instead
+  of flattening its items.
 - **Passkeys, social/OIDC, connected apps, account deletion, webhooks and
   email notification preferences** are web-managed; the account screen links
   to `{web}/account/settings`.
@@ -88,5 +87,5 @@ errors, offline-first cache).
 the removed unauthenticated URL model (old `groups.get`/`groups.expenses.*`
 mocks, old category-list injection, old share-link behavior and pre-v22
 migration data); those are expected to need rewrites rather than indicating
-compile failures in the app. The five-minute full-suite run reported 1,146
-passing and 184 failing tests, concentrated in those legacy fixtures.
+compile failures in the app. The full-suite run reported 1,176 passing and 175
+failing tests, concentrated in those legacy fixtures.

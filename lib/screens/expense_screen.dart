@@ -46,13 +46,11 @@ import '../widgets/notes_text.dart';
 import '../utils/markdown_note.dart';
 import '../widgets/top_bar_buttons.dart';
 import 'expense_form/currency_card.dart';
+import 'expense_form/payer_card.dart';
 import 'expense_form/receipt_scan_card.dart';
 import 'expense_form/rate_lookup.dart';
 import 'expense_form/receipt_scan_controller.dart';
 import 'expense_form/split_card.dart';
-import '../widgets/participant_colors.dart';
-import '../widgets/group_monogram.dart';
-import '../widgets/participant_sheet.dart';
 
 /// Adds -- or, given [existingExpense], edits -- an expense. A settlement
 /// ([Expense.isSettlement]) uses the same screen with its own fields: From
@@ -175,8 +173,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   final _scroll = ScrollController();
 
   /// What a refused save scrolls to, besides the fields (#259): the split's
-  /// footer, and a calculated amount that can't be saved.
+  /// footer, the payers', and a calculated amount that can't be saved.
   final _paidForFooterKey = GlobalKey();
+  final _payerFooterKey = GlobalKey();
   final _calculatedKey = GlobalKey();
 
   /// What's typed and picked, and what it works out to (#258). Made once
@@ -529,42 +528,15 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   }
 
   /// "Paid by" (#260): the payer by their monogram, opening the
-  /// participant sheet.
+  /// participant sheet; several payers, each with what they paid.
   ///
   /// It's the split card's first row (Kenneth, 2026-10-10: a card of its
   /// own looked stranded).
-  Widget _paidByRow(BuildContext context) {
-    final l10n = context.l10n;
-    final participants = widget.group.participants;
-    final payer = participants.where((p) => p.id == _m.paidBy).firstOrNull;
-    // A settlement's is "From" (#262).
-    final label = _m.isSettlement ? l10n.expenseFromLabel : l10n.expensePaidByLabel;
-    // Not a trailing: ListTile gives that all the width it asks for, and a
-    // long name squeezed "From" to a letter a line. A name that doesn't
-    // fit beside the label goes under it (#263).
-    return GroupedRow(
-        title: formLabel(context, label),
-        value: payer == null
-            ? null
-            : Row(mainAxisSize: MainAxisSize.min, children: [
-                Monogram(
-                    name: payer.name,
-                    color: participantColors(participants, widget.activeUserId)[payer.id]!,
-                    radius: 12),
-                const SizedBox(width: 8),
-                Flexible(child: _value(context, participantName(context, payer, widget.activeUserId))),
-              ]),
-        onTap: () async {
-          _dropFocus();
-          final picked = await showParticipantSheet(context,
-              title: label,
-              participants: participants,
-              checkedId: _m.paidBy,
-              activeUserId: widget.activeUserId);
-          if (picked != null) _m.paidBy = picked;
-        },
+  Widget _paidBy(BuildContext context) => PayerCard(
+        model: _m,
+        showErrors: _hasAttemptedSave,
+        footerKey: _payerFooterKey,
       );
-  }
 
   /// A field on a card, which draws no box of its own.
   /// Notes, and whether they're markdown (#311): the switch saves them
@@ -862,7 +834,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   SplitCard(
                       model: _m,
                       showErrors: _hasAttemptedSave,
-                      payer: _paidByRow(context),
+                      payer: _paidBy(context),
                       footerKey: _paidForFooterKey),
                   ReceiptsCard(controller: _receipts, onAdd: _addReceipt, keepsUnsent: !widget.isEditing),
                   // Last: receipts hardly change height, notes can be long
@@ -935,6 +907,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     if (_m.splitProblem() != null) return _refuse();
     final amounts = _m.amountsToSave();
     if (amounts == null) return _refuse();
+    // Who paid: one for all of it, or several for parts that add up to it.
+    final payers = _m.payers();
+    if (payers == null) return _refuse();
     final paidFor = _m.paidFor();
     if (paidFor == null) return _refuse();
 
@@ -994,6 +969,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       final l10n = context.l10n;
       final problems = [
         for (final field in invalid) (field.context, field.errorText),
+        if ((_m.payerProblem() != null, _payerFooterKey.currentContext) case (true, final payers?))
+          (payers, PayerCard.problem(context, _m)),
         if ((_m.splitProblem() != null || (_m.isSettlement && _m.convertedAmountInvalid),
             _paidForFooterKey.currentContext) case (true, final footer?))
           (footer, SplitCard.problem(context, _m)),
@@ -1062,15 +1039,20 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   }
 
   Future<void> _saveNew(ExpenseAmounts amounts, List<ExpenseShare> paidFor) async {
+    final payers = _m.payers()!;
     final expense = Expense(
       id: const Uuid().v4(),
       groupId: widget.group.id,
       title: _m.titleController.text.trim(),
       amountCents: amounts.amount,
-      paidBy: _m.paidBy!,
+      paidBy: payers.first.participantId,
       paidFor: paidFor,
       splitMode: _m.splitModeToSave,
       category: _m.categoryToSave,
+      // Several payers are the row's own; one pays the whole amount, as
+      // every row written before there could be more than one did.
+      paidByList: payers.length > 1 ? payers : const [],
+      isMultiPayer: payers.length > 1,
       notes: _m.notes,
       date: _m.date,
       isSettlement: _m.isSettlement,
@@ -1120,22 +1102,23 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   /// rather than silently queuing anything, since there's no queueing
   /// path for edits.
   Future<void> _saveEdit(ExpenseAmounts amounts, List<ExpenseShare> paidFor) async {
-    // Cloud lets an expense have several payers and line items. This form
-    // edits one payer and no items; saving would collapse those fields, so
-    // send the edit to the web instead of corrupting the expense.
-    if (widget.existingExpense!.isMultiPayer ||
-        widget.existingExpense!.items.isNotEmpty) {
+    // Cloud lets an expense have line items. This form edits none; saving
+    // would flatten them away, so send the edit to the web instead.
+    if (widget.existingExpense!.items.isNotEmpty) {
       if (mounted) {
-        showErrorSnackBar(context, context.l10n.expenseEditComplexOnWeb);
+        showErrorSnackBar(context, context.l10n.expenseEditItemizedOnWeb);
       }
       return;
     }
+    final payers = _m.payers()!;
     await widget.client.updateExpense(
       groupId: widget.group.id,
       expenseId: widget.existingExpense!.id,
       title: _m.titleController.text.trim(),
       amountCents: amounts.amount,
-      paidBy: _m.paidBy!,
+      paidBy: payers.first.participantId,
+      // Everyone who paid, each for their part: one pays it all.
+      payers: payers,
       paidFor: paidFor,
       splitMode: _m.splitModeToSave,
       category: _m.categoryToSave,

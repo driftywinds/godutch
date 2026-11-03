@@ -98,6 +98,8 @@ class Outbox {
           amountCents: local.amountCents,
           paidBy: local.paidBy,
           paidFor: local.paidFor,
+          // Several people can have paid it, each for a part.
+          payers: local.payers,
           splitMode: local.splitMode,
           category: local.category,
           notes: local.notes,

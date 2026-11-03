@@ -9,13 +9,16 @@ import 'grouped_section.dart';
 
 /// Picks one participant (#260), such as who paid: a sheet sliding up with
 /// [title] over the group's participants, each by their monogram, the
-/// [checkedId] one checked and [activeUserId] named "(you)". A pick answers
-/// at once; a tap outside or a drag down answers null.
+/// [checkedIds] ones checked and [activeUserId] named "(you)". A pick
+/// answers at once; a tap outside or a drag down answers null.
+///
+/// Several can be checked for a question that allows it, such as adding
+/// another payer: each checked one is already in it.
 Future<String?> showParticipantSheet(
   BuildContext context, {
   required String title,
   required List<Participant> participants,
-  String? checkedId,
+  Set<String> checkedIds = const {},
   String? activeUserId,
 }) =>
     showModalBottomSheet<String>(
@@ -43,7 +46,7 @@ Future<String?> showParticipantSheet(
                       ChoiceRow(
                         leading: Monogram(name: p.name, color: colors[p.id]!, radius: 12),
                         label: participantName(context, p, activeUserId),
-                        checked: p.id == checkedId,
+                        checked: checkedIds.contains(p.id),
                         onTap: () => Navigator.of(context).pop(p.id),
                       ),
                   ],

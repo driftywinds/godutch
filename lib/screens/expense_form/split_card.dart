@@ -370,10 +370,10 @@ class SplitCard extends StatelessWidget {
 
   /// Everyone, but a settlement's From isn't among its To (Kenneth,
   /// 2026-10-10), unless an older one saved them with an amount, which
-  /// would otherwise count unseen.
+  /// would otherwise count unseen. Several payers are all From.
   List<Participant> get _toList => [
         for (final p in _m.group.participants)
-          if (!_m.isSettlement || p.id != _m.paidBy || (_m.typedValue(p) ?? 0) != 0) p,
+          if (!_m.isSettlement || !_m.isPayer(p.id) || (_m.typedValue(p) ?? 0) != 0) p,
       ];
 
   /// A running "still to allocate"/"over" for Percent and Amount, or the

@@ -26,7 +26,7 @@ This app speaks **only** the Spliit Cloud API. It no longer joins anonymous `spl
 
 ### Expenses
 - Expense list, details, add, edit and delete against the Cloud schema, with the same offline-first cache and outbox as before.
-- **Multiple payers** are read and included in balances; Cloud's payer splits are cached with the expense.
+- **Multiple payers** are read, included in balances, and authored in the form: one person pays the whole amount, or several each pay a part that adds up to it.
 - **Comments** on an expense, read and posted from the details sheet.
 - **Activity** feed with Cloud's activity types.
 - **Categories** use Cloud's slug catalogue (`general`, `groceries`, `settlement`, …) with stable local ids for icons and translations.
@@ -75,7 +75,7 @@ Pushing a `v*` tag runs [`.github/workflows/android-release.yml`](.github/workfl
 ## Known limits
 
 - Passkeys, social/OIDC sign-in, connected apps and full account deletion are web-managed; the app links to `{instance}/account/settings`.
-- Itemized expenses and editing an existing multi-payer expense are displayed but not authored in the app yet; creating a new expense records one payer.
+- Itemized expenses are displayed but not authored in the app yet; editing one is redirected to the web so its line items aren't flattened.
 - CSV/bundle import/export is not in the mobile UI yet; Cloud's web app covers it.
 - iOS cannot auto-open `spliit.cloud` links without the instance publishing an associated-domain entry for this bundle; pasting the invite or recovery link always works.
 

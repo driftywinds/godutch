@@ -212,6 +212,42 @@
   "expenseDateLabel": "Date",
   "expenseCategoryLabel": "Category",
   "expensePaidByLabel": "Paid by",
+  "expenseAddPayer": "Add payer",
+  "expenseRemovePayer": "Remove {name}",
+  "@expenseRemovePayer": {
+    "description": "A multi-payer expense's row for one payer: takes them out of who paid.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expensePayerAmountField": "{name}, amount paid",
+  "@expensePayerAmountField": {
+    "description": "A multi-payer expense's field for what one payer paid, named for a screen reader.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseSelectPayer": "Select who paid",
+  "expensePayerAmountShort": "The amounts paid must add up to the total ({amount} short)",
+  "@expensePayerAmountShort": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "expensePayerAmountOver": "The amounts paid must add up to the total ({amount} over)",
+  "@expensePayerAmountOver": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "expenseRepeatLabel": "Repeat",
   "expenseRepeatNone": "Never",
   "expenseRepeatDaily": "Daily",
@@ -1161,7 +1197,7 @@
   "expenseCommentsLoadFailed": "Couldn't load the comments.",
   "expenseCommentAddFailed": "Couldn't save the comment.",
   "expenseDetailsMultiplePayers": "several people",
-  "expenseEditComplexOnWeb": "This expense has several payers or line items. Edit it on the web for now; this app would collapse them.",
+  "expenseEditItemizedOnWeb": "This expense has line items. Edit it on the web for now; this app would flatten them.",
   "welcomeTitle": "Spliit Cloud",
   "welcomeTagline": "Split expenses with your groups, on every device.",
   "welcomeCreateAccount": "Create an account",

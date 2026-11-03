@@ -857,6 +857,106 @@ void main() {
     });
   });
 
+  group('who paid', () {
+    /// Alex paid €4 of it and Cy €6.
+    Expense multiPayer({int amount = 1000, bool settlement = false}) => Expense(
+          id: 'e1',
+          groupId: 'g',
+          title: 'Ramen',
+          amountCents: amount,
+          paidBy: 'alex',
+          paidByList: const [
+            ExpenseShare(participantId: 'alex', shares: 400),
+            ExpenseShare(participantId: 'cy', shares: 600),
+          ],
+          isMultiPayer: true,
+          paidFor: const [
+            ExpenseShare(participantId: 'alex', shares: 100),
+            ExpenseShare(participantId: 'bea', shares: 100),
+          ],
+          category: 8,
+          date: DateTime.utc(2026, 10, 1),
+          isSettlement: settlement,
+        );
+
+    test('one payer pays the whole amount, and has no amount of their own', () {
+      final m = model(euros, paidBy: 'bea')..amountController.text = '10';
+      expect(m.multiPayer, isFalse);
+      expect(m.payerIds, ['bea']);
+      expect(m.payerProblem(), isNull);
+      expect(m.payers()!.single.participantId, 'bea');
+      expect(m.payers()!.single.shares, 1000);
+      expect(m.hasChanges, isTrue);
+    });
+
+    test('an edited one keeps every payer and what each paid', () {
+      final m = model(euros, existing: multiPayer());
+      expect(m.multiPayer, isTrue);
+      expect(m.payerIds, ['alex', 'cy']);
+      expect((m.payerAmountControllers['alex']!.text, m.payerAmountControllers['cy']!.text), ('4.00', '6.00'));
+      expect(m.payerProblem(), isNull);
+      expect(m.payers()!.map((s) => (s.participantId, s.shares)), [('alex', 400), ('cy', 600)]);
+      // Untouched, it's where the form started.
+      expect(m.hasChanges, isFalse);
+    });
+
+    test('adding a payer shares the amount out evenly; removing one leaves the rest', () {
+      final m = model(euros, paidBy: 'alex')..amountController.text = '10';
+      m.addPayer('bea');
+      expect(m.payerIds, ['alex', 'bea']);
+      expect(m.payers()!.map((s) => (s.participantId, s.shares)), [('alex', 500), ('bea', 500)]);
+      expect(m.hasChanges, isTrue);
+
+      m.removePayer('alex');
+      // The other takes over, paying all of it, and the row is one again.
+      expect(m.paidBy, 'bea');
+      expect(m.multiPayer, isFalse);
+      expect(m.payers()!.map((s) => (s.participantId, s.shares)), [('bea', 1000)]);
+    });
+
+    test('the last payer can\'t be taken out', () {
+      final m = model(euros, paidBy: 'alex')..amountController.text = '10';
+      m.removePayer('alex');
+      expect(m.paidBy, 'alex');
+      expect(m.payers()!.single.shares, 1000);
+    });
+
+    test('amounts that don\'t add up to the total are said, and can\'t be saved', () {
+      final m = model(euros, existing: multiPayer());
+      m.payerAmountControllers['cy']!.text = '3';
+      expect(m.payerProblem(), isA<PayersDontAddUp>().having((p) => p.difference, 'short by', 300));
+      expect(m.payers(), isNull);
+
+      m.payerAmountControllers['cy']!.text = '8';
+      expect(m.payerProblem(), isA<PayersDontAddUp>().having((p) => p.difference, 'over by', -200));
+    });
+
+    test('a payer with no positive amount is named', () {
+      final m = model(euros, existing: multiPayer());
+      m.payerAmountControllers['cy']!.text = '0';
+      expect(m.payerProblem(), isA<InvalidPayerAmount>().having((p) => p.participantId, 'who', 'cy'));
+      m.payerAmountControllers['cy']!.text = '';
+      expect(m.payerProblem(), isA<InvalidPayerAmount>());
+    });
+
+    test('choosing another payer replaces them rather than adding one', () {
+      final m = model(euros, paidBy: 'alex')..amountController.text = '10';
+      m.paidBy = 'bea';
+      expect(m.payerIds, ['bea']);
+      expect(m.payers()!.single.shares, 1000);
+    });
+
+    test('a settlement\'s payers aren\'t among its To', () {
+      final m = model(euros, existing: multiPayer(settlement: true));
+      // Saved with an amount on a To who is also a From.
+      expect(m.isIncluded('alex'), isTrue);
+      m.addPayer('bea');
+      // Both of them are From now, so neither keeps a To amount.
+      expect((m.isIncluded('alex'), m.isIncluded('bea')), (false, false));
+      expect((m.splitControllers['alex']!.text, m.splitControllers['bea']!.text), ('', ''));
+    });
+  });
+
   test('trimTrailingZeros', () {
     expect([trimTrailingZeros(1.5), trimTrailingZeros(2), trimTrailingZeros(33.333)], ['1.5', '2', '33.33']);
   });

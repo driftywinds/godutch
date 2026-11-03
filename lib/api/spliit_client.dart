@@ -970,6 +970,7 @@ class SpliitClient {
     required bool isSettlement,
     required RecurrenceRule recurrenceRule,
     required List<ExpenseDocument> documents,
+    List<ExpenseShare>? payers,
     int? originalAmountCents,
     String? originalCurrency,
     double? conversionRate,
@@ -977,6 +978,13 @@ class SpliitClient {
   }) {
     final categoryId =
         isSettlement ? cloudSettlementCategoryId : cloudCategoryIdForLocal(category);
+    // Everyone who paid: Cloud records several, each for a part of the
+    // amount, and flags the expense as having more than one. One payer --
+    // the usual, and everything this app wrote before multi-payer --
+    // pays it all.
+    final payerList = payers == null || payers.isEmpty
+        ? [ExpenseShare(participantId: paidBy, shares: amountCents)]
+        : payers;
     return {
       'expenseDate': DeviceTimeZone.instantForDate(date, timeZone).toIso8601String(),
       'expenseTimeZone': timeZone,
@@ -995,11 +1003,9 @@ class SpliitClient {
           },
         },
       'paidBySplitMode': 'BY_AMOUNT',
-      'paidByList': [
-        {'participant': paidBy, 'shares': amountCents},
-      ],
+      'paidByList': [for (final p in payerList) p.toJson()],
       'paidFor': [for (final s in paidFor) s.toJson()],
-      'isMultiPayer': false,
+      'isMultiPayer': payerList.length > 1,
       'splitMode': splitMode.wireValue,
       'documents': [for (final d in documents) d.toJson()],
       'notes': notes,
@@ -1032,6 +1038,7 @@ class SpliitClient {
     bool isSettlement = false,
     RecurrenceRule recurrenceRule = RecurrenceRule.none,
     bool saveDefaultSplittingOptions = false,
+    List<ExpenseShare>? payers,
     int? originalAmountCents,
     String? originalCurrency,
     double? conversionRate,
@@ -1053,6 +1060,7 @@ class SpliitClient {
       isSettlement: isSettlement,
       recurrenceRule: recurrenceRule,
       documents: documents,
+      payers: payers,
       originalAmountCents: originalAmountCents,
       originalCurrency: originalCurrency,
       conversionRate: conversionRate,
@@ -1082,6 +1090,7 @@ class SpliitClient {
     bool isSettlement = false,
     RecurrenceRule recurrenceRule = RecurrenceRule.none,
     bool saveDefaultSplittingOptions = false,
+    List<ExpenseShare>? payers,
     int? originalAmountCents,
     String? originalCurrency,
     double? conversionRate,
@@ -1108,6 +1117,7 @@ class SpliitClient {
       isSettlement: isSettlement,
       recurrenceRule: recurrenceRule,
       documents: documents,
+      payers: payers,
       originalAmountCents: originalAmountCents,
       originalCurrency: originalCurrency,
       conversionRate: conversionRate,

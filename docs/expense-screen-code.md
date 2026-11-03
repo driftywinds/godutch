@@ -14,6 +14,7 @@ flowchart TD
   A["ReceiptAttachmentsController<br/>attached photos"]
   SC["SplitCard"]
   CC["CurrencyCard"]
+  PC["PayerCard"]
   RC["ReceiptScanCard"]
   RS["ReceiptsCard"]
   S --> M
@@ -23,10 +24,11 @@ flowchart TD
   M --> R
   L --> M
   C --> M
-  S --> SC & CC & RC & RS
+  S --> SC & CC & PC & RC & RS
   SC --> M
   CC --> M
   CC --> L
+  PC --> M
   RC --> C
   RS --> A
 ```
@@ -61,9 +63,9 @@ A key typed goes into one of the model's controllers; a tap calls one of its set
 Its functions, by job:
 
 - **Starting:** `_start` makes the model with the locale's decimal separator; `_loadCategories`; `_loadDefaultSplit` reads the group's remembered split (`db.defaultSplitFor`).
-- **Layout:** `build` → `_form`: the top bar, then, top to bottom, the scan card (`_scanSection`), the title/category/date/repeat card (`_repeatRow`), `CurrencyCard`, `SplitCard` with `_paidByRow` as its first row, `ReceiptsCard`, notes.
+- **Layout:** `build` → `_form`: the top bar, then, top to bottom, the scan card (`_scanSection`), the title/category/date/repeat card (`_repeatRow`), `CurrencyCard`, `SplitCard` with `_paidBy` (a `PayerCard`) as its first row, `ReceiptsCard`, notes.
 - **Top bar:** `_title`; `_kindButton` and `_switchKind` switch Expense ↔ Settlement, asking first for a saved one (`_converts`); `_confirmLeave` asks before ✕ drops changes.
-- **Pickers:** `_pickDate`, `_pickCategory`, `_pickPaidIn`, `_pickReceiptLanguage`; Paid by opens `showParticipantSheet` from `_paidByRow`.
+- **Pickers:** `_pickDate`, `_pickCategory`, `_pickPaidIn`, `_pickReceiptLanguage`; Paid by opens `showParticipantSheet` from `PayerCard`.
 - **Receipts:** `_addReceipt`, `_scanReceipt`, `_photoFailed`.
 - **Saving:** `_save` checks the form and the receipts, then:
   - `_saveNew`: a new expense goes into the database as a pending row (`db.insertPending`), so it shows straight away and works offline. When the screen closes, the screen that opened it (the group screen, Balances) syncs, and the `Outbox` sends it.
@@ -74,8 +76,9 @@ Its functions, by job:
 
 **`ExpenseFormModel`** (`ChangeNotifier`), made from the group, the expense being edited or a draft, the active user (a new expense's Paid by, `resolveDefaultPaidBy`) and the decimal separator.
 
-- **Text controllers:** `titleController`, `amountController`, `originalAmountController` (the amount in the paid-in currency), `notesController`, and `splitControllers`, one per person.
+- **Text controllers:** `titleController`, `amountController`, `originalAmountController` (the amount in the paid-in currency), `notesController`, `splitControllers` and `payerAmountControllers`, one per person.
 - **Values and setters:** `paidBy`, `date`/`setDate`, `category`/`setCategory`, `isSettlement`/`setSettlement`, `splitMode`, `recurrenceRule`, `saveDefaultSplit`; who's included with `isIncluded`, `setIncluded`, `toggleSelectAll`; `applyDefaultSplit`.
+- **Who paid:** `payerIds` and `multiPayer` (Spliit Cloud records several, each for a part), `isPayer`, `paidByAmount`, `addPayer`/`removePayer` (which share the amount out evenly), `payerProblem()` (a `PayerProblem`: `NoPayer`, `InvalidPayerAmount` or `PayersDontAddUp`) and `payers()`, the list that's saved.
 - **Currency:** `paidIn`, `choosePaidIn`, `converting`, `paidInCurrency`; the rate is `rateField` (an `ExchangeRateField`) and `rate`.
 - **Amounts:** `amount`, `typedAmount`, `originalAmount`, `settlementTotal`; `amountsToSave()` returns an `ExpenseAmounts`.
 - **The split:**
@@ -91,7 +94,8 @@ Its functions, by job:
 
 | File | Contains | Does |
 |---|---|---|
-| `split_card.dart` | `SplitCard` | Paid by and Paid for, or a settlement's From and To. The mode pill, or a menu row where it doesn't fit (`_modes`); a row per person (`_row`); a settlement's totals; and the message under it (`_hint`, and `problem`, which `_refuse` also announces) |
+| `payer_card.dart` | `PayerCard` | Paid by, or a settlement's From. One payer is a row that picks them; several are a row each with what they paid and a ✕, a row to add another, and what doesn't add up (`problem`, which `_refuse` also announces) |
+| `split_card.dart` | `SplitCard` | Paid for, or a settlement's To. The mode pill, or a menu row where it doesn't fit (`_modes`); a row per person (`_row`); a settlement's totals; and the message under it (`_hint`, and `problem`, which `_refuse` also announces) |
 | `currency_card.dart` | `CurrencyCard`, `_RateField` | Paid in, the amount, the rate row with its pair to swap, the rate's note (`_rateStatus`), and the "In {currency}" rows |
 | `rate_field.dart` | `ExchangeRateField` | The rate field's logic: which currency is first in the pair (`swap`), filling in a looked-up rate without overwriting a typed one (`fill`, `typed`), a saved rate when editing (`showSaved`) |
 | `rate_lookup.dart` | `RateLookup`, `RateLookupState` | Looks up the published rate (`lookUp`) and remembers the pair's order on this device (`swap`, `loadOrder`) |
@@ -141,6 +145,7 @@ Its functions, by job:
 - `test/screens/expense_form/expense_form_model_test.dart`: the model, without widgets.
 - `test/screens/expense_form/expense_form_frame_test.dart`: the top bar, the cards' layout, the kind button, the keyboard.
 - `test/screens/expense_form/people_card_test.dart`: Paid by and Paid for, and what a screen reader hears.
+- `test/screens/expense_form/payer_card_test.dart`: several payers: editing one, adding and removing one, and what doesn't add up.
 - `test/screens/expense_form/expense_form_a11y_test.dart`: tap targets and screen-reader labels on both platforms, large text, and what a refused save announces (#263).
 - `test/screens/expense_screen_test.dart`: whole flows: saving, editing, currencies and rates, settlements.
 - `test/screens/expense_receipt_scan_test.dart`, `expense_receipts_form_test.dart`, `expense_receipts_test.dart`: scanning and attaching receipts.

@@ -44,7 +44,7 @@ class ExpenseFormModel extends ChangeNotifier {
       paidBy = resolveDefaultPaidBy(activeUserId: activeUserId, participants: group.participants);
     }
     for (final c in [titleController, amountController, notesController, originalAmountController,
-      rateField.controller, ...splitControllers.values]) {
+      rateField.controller, ...splitControllers.values, ...payerAmountControllers.values]) {
       c.addListener(_typed);
     }
     for (final c in [amountController, originalAmountController, rateField.controller]) {
@@ -93,18 +93,158 @@ class ExpenseFormModel extends ChangeNotifier {
         // Picking the same From again changes nothing: an older
         // settlement's own share stays (#281 review).
         if (id == _paidBy) return;
+        // Whoever it was already paying stops, so no one pays twice and
+        // the rows keep adding up to the total.
+        _extraPayerIds.remove(id);
         _paidBy = id;
-        _dropPayerFromTo();
+        _dropPayersFromTo();
+        if (multiPayer) _sharePayersEvenly();
       });
+
+  // ---------------------------------------------------------------------
+  // Who paid.
+
+  /// The payers after [paidBy]. Spliit Cloud records several people paying
+  /// one expense, each for a part of it; the ordinary expense has one, who
+  /// paid all of it.
+  final List<String> _extraPayerIds = [];
+
+  /// Everyone who paid, [paidBy] first and in the order the card lists
+  /// them.
+  List<String> get payerIds => [if (_paidBy case final id?) id, ..._extraPayerIds];
+
+  /// Whether more than one person paid: only then does each have an amount
+  /// of their own, and only then is one saved.
+  bool get multiPayer => _extraPayerIds.isNotEmpty;
+
+  bool isPayer(String id) => id == _paidBy || _extraPayerIds.contains(id);
+
+  /// What each payer paid, as typed, in the group's currency. Only several
+  /// payers have one: one pays the whole amount, which the Amount field
+  /// already says.
+  late final Map<String, TextEditingController> payerAmountControllers = {
+    for (final p in group.participants) p.id: TextEditingController(),
+  };
+
+  /// What [id] paid, in the group currency's smallest unit, or null while
+  /// it isn't a number.
+  int? paidByAmount(String id) {
+    if (!multiPayer) return id == _paidBy ? amount : null;
+    final text = payerAmountControllers[id]?.text.trim() ?? '';
+    return switch (parseDecimal(text)) {
+      final value? when value >= 0 => toMinorUnits(value, digits),
+      _ => null,
+    };
+  }
+
+  /// What's wrong with who paid, if anything: no one, an amount that isn't
+  /// one, or amounts that don't add up to the total. Cloud's payer list
+  /// must add up to the amount, as the split must.
+  PayerProblem? payerProblem() {
+    if (_paidBy == null) return const NoPayer();
+    if (!multiPayer) return null;
+    // The amount's own field says what's wrong when there's no total yet.
+    final total = amount;
+    if (total == null) return null;
+    var sum = 0;
+    for (final id in payerIds) {
+      final paid = paidByAmount(id);
+      // Everyone paying paid something; a 0 row is one to fill in.
+      if (paid == null || paid <= 0) return InvalidPayerAmount(id);
+      sum += paid;
+    }
+    return sum == total ? null : PayersDontAddUp(total - sum);
+  }
+
+  /// Who paid, and how much each, for saving: null when [payerProblem]
+  /// finds a problem, or while the amount isn't known.
+  List<ExpenseShare>? payers() {
+    if (payerProblem() != null) return null;
+    final amounts = <String, int>{};
+    for (final id in payerIds) {
+      final paid = paidByAmount(id);
+      if (paid == null) return null;
+      amounts[id] = paid;
+    }
+    return [
+      for (final MapEntry(:key, :value) in amounts.entries)
+        ExpenseShare(participantId: key, shares: value),
+    ];
+  }
+
+  /// Adds [id] as another payer, sharing the amount out between everyone
+  /// paying, evenly to begin with.
+  void addPayer(String id) => _set(() {
+        if (isPayer(id)) return;
+        if (_paidBy == null) {
+          _paidBy = id;
+        } else {
+          _extraPayerIds.add(id);
+        }
+        // Before sharing it out: a settlement's total is its To amounts,
+        // and the new payer's stops counting.
+        _dropPayersFromTo();
+        if (multiPayer) _sharePayersEvenly();
+      });
+
+  /// Stops [id] paying; the last payer stays, since someone paid.
+  void removePayer(String id) => _set(() {
+        if (!isPayer(id)) return;
+        if (_paidBy == id) {
+          if (_extraPayerIds.isEmpty) return;
+          _paidBy = _extraPayerIds.removeAt(0);
+        } else {
+          _extraPayerIds.remove(id);
+        }
+        payerAmountControllers[id]?.text = '';
+        if (multiPayer) {
+          _sharePayersEvenly();
+        } else {
+          _clearPayerAmounts();
+        }
+      });
+
+  /// Shares the amount out evenly between the payers, after one is added or
+  /// removed: the odd unit to the first, as the split's Evenly does.
+  void _sharePayersEvenly() {
+    final ids = payerIds;
+    final total = amount;
+    _filling = true;
+    for (final c in payerAmountControllers.values) {
+      c.text = '';
+    }
+    if (total != null && total > 0) {
+      final cents = shareCentsFor(
+        amountCents: total,
+        splitMode: SplitMode.evenly,
+        paidFor: [for (final id in ids) ExpenseShare(participantId: id, shares: 1)],
+      );
+      for (final id in ids) {
+        payerAmountControllers[id]?.text = minorText(cents[id] ?? 0, digits);
+      }
+    }
+    _filling = false;
+  }
+
+  void _clearPayerAmounts() {
+    _filling = true;
+    for (final c in payerAmountControllers.values) {
+      c.text = '';
+    }
+    _filling = false;
+  }
 
   /// A settlement's From isn't one of its To (Kenneth, 2026-10-10): the
   /// card leaves them out, so they mustn't keep an amount it can't show.
   /// Only when someone becomes From: an older settlement saved with its
   /// payer among the To keeps that amount, shown, until they're changed.
-  void _dropPayerFromTo() {
-    if (!_isSettlement || _paidBy == null || !splitControllers.containsKey(_paidBy)) return;
-    _included[_paidBy!] = false;
-    splitControllers[_paidBy]!.text = '';
+  void _dropPayersFromTo() {
+    if (!_isSettlement) return;
+    for (final id in payerIds) {
+      if (!splitControllers.containsKey(id)) continue;
+      _included[id] = false;
+      splitControllers[id]!.text = '';
+    }
   }
 
   DateTime _date = DateTime.now();
@@ -143,7 +283,7 @@ class ExpenseFormModel extends ChangeNotifier {
 
   /// Who paid when [_otherSplit] was set aside: a settlement's To comes
   /// back as it was unless a To became From meanwhile.
-  String? _otherSplitPayer;
+  List<String> _otherSplitPayers = const [];
 
   /// Switches between an expense and a settlement (#262). A settlement's
   /// "To" is the Amount rows, its amount their sum; an expense gets its
@@ -155,9 +295,9 @@ class ExpenseFormModel extends ChangeNotifier {
     final recipients = value ? null : includedParticipants;
     final total = value ? null : (converting ? originalAmount : amount);
     final other = _otherSplit;
-    final otherPayer = _otherSplitPayer;
+    final otherPayers = _otherSplitPayers;
     _otherSplit = _currentSplit();
-    _otherSplitPayer = _paidBy;
+    _otherSplitPayers = payerIds;
     _isSettlement = value;
     _convertedAmountInvalid = false;
     if (other != null) {
@@ -188,7 +328,7 @@ class ExpenseFormModel extends ChangeNotifier {
     }
     if (!value) _autoTitle = null;
     // A fresh settlement's To is empty already.
-    if (other != null && otherPayer != _paidBy) _dropPayerFromTo();
+    if (other != null && !listEquals(otherPayers, payerIds)) _dropPayersFromTo();
     _filling = false;
     _cleanAfterSwitch = clean ? _state() : null;
     notifyListeners();
@@ -367,7 +507,9 @@ class ExpenseFormModel extends ChangeNotifier {
         // Switching away and back leaves the hidden ones filled in (#266).
         for (final p in group.participants)
           _splitMode == SplitMode.evenly ? _included[p.id] : splitControllers[p.id]!.text,
-        _paidBy,
+        // Who paid, in order, and what each did when more than one did.
+        ...payerIds,
+        if (multiPayer) for (final id in payerIds) payerAmountControllers[id]!.text,
         _date,
         _category,
         _isSettlement,
@@ -850,7 +992,28 @@ class ExpenseFormModel extends ChangeNotifier {
     amountController.text = minorText(e.amountCents, digits);
     notesController.text = noteBody(e.notes);
     _notesMarkdown = isMarkdownNote(e.notes);
-    _paidBy = e.paidBy;
+    // Everyone who paid, in the order Cloud lists them: one, or several
+    // with an amount each. A payer who's left the group isn't shown, as a
+    // split's participant who has. Their shares are read as what they paid
+    // ([expensePaidCents]), whatever mode they were saved in, and saved
+    // back as amounts.
+    final paid = expensePaidCents(e);
+    _extraPayerIds.clear();
+    _paidBy = null;
+    for (final payer in e.payers) {
+      final id = payer.participantId;
+      if (!payerAmountControllers.containsKey(id)) continue;
+      if (_paidBy == null) {
+        _paidBy = id;
+      } else if (id != _paidBy) {
+        _extraPayerIds.add(id);
+      }
+    }
+    if (multiPayer) {
+      for (final id in payerIds) {
+        payerAmountControllers[id]?.text = minorText(paid[id] ?? 0, digits);
+      }
+    }
     _category = e.category;
     _date = e.date;
     _isSettlement = e.isSettlement;
@@ -930,7 +1093,7 @@ class ExpenseFormModel extends ChangeNotifier {
   @override
   void dispose() {
     for (final c in [titleController, amountController, notesController, originalAmountController,
-      ...splitControllers.values]) {
+      ...splitControllers.values, ...payerAmountControllers.values]) {
       c.dispose();
     }
     rateField.dispose();
@@ -982,6 +1145,29 @@ class PercentagesDontAddUp extends SplitProblem {
 /// in the smallest unit of [ExpenseFormModel.splitSymbol]'s currency.
 class AmountsDontAddUp extends SplitProblem {
   const AmountsDontAddUp(this.difference);
+  final int difference;
+}
+
+/// Why who paid can't be saved; the card says it in words.
+sealed class PayerProblem {
+  const PayerProblem();
+}
+
+/// Nobody is set as having paid.
+class NoPayer extends PayerProblem {
+  const NoPayer();
+}
+
+/// [participantId]'s amount paid isn't a positive number.
+class InvalidPayerAmount extends PayerProblem {
+  const InvalidPayerAmount(this.participantId);
+  final String participantId;
+}
+
+/// The payers' amounts miss the total by [difference] (positive: short of
+/// it), in the group currency's smallest unit.
+class PayersDontAddUp extends PayerProblem {
+  const PayersDontAddUp(this.difference);
   final int difference;
 }
 

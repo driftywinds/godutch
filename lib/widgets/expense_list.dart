@@ -94,8 +94,9 @@ class ExpenseDateList extends StatelessWidget {
             category: categoryFor(e.category),
             currency: currency,
             decimalDigits: decimalDigits,
-            payer: names[e.paidBy],
-            payerColor: colors[e.paidBy],
+            // Several payers have no one name to show.
+            payer: e.isMultiPayer ? context.l10n.expenseDetailsMultiplePayers : names[e.paidBy],
+            payerColor: e.isMultiPayer ? null : colors[e.paidBy],
             activeUserId: activeUserId,
             onTap: () => onTap(e),
           ),
@@ -168,7 +169,8 @@ class ExpenseTile extends StatelessWidget {
     final shortDate = formatShortDate(e.date, locale: locale);
     final yours = _yourPart();
     final yoursText = yours == null ? null : formatMoney(yours.cents, currency, decimalDigits: decimalDigits, locale: locale);
-    final paidByYou = activeUserId != null && e.paidBy == activeUserId;
+    // Several payers: no one "You" paid it.
+    final paidByYou = activeUserId != null && e.paidBy == activeUserId && !e.isMultiPayer;
     final recurring = e.recurrenceRule != RecurrenceRule.none;
     final receipts = e.documentCount > 0 || e.documents.isNotEmpty;
     final notes = e.notes.trim().isNotEmpty;

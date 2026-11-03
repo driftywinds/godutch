@@ -302,6 +302,35 @@ void main() {
     expect(DateTime.parse(expense['expenseDate']).toUtc(), DateTime.utc(2026, 2, 3, 12));
   });
 
+  test('createExpense sends every payer, each with what they paid', () async {
+    late Map<String, dynamic> body;
+    final client = cloudClient((request) async {
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(trpcJson({'expenseId': 'e1'}), 200);
+    });
+    await client.createExpense(
+      groupId: 'g1',
+      title: 'Dinner',
+      amountCents: 3000,
+      paidBy: 'p1',
+      payers: const [
+        ExpenseShare(participantId: 'p1', shares: 1200),
+        ExpenseShare(participantId: 'p2', shares: 1800),
+      ],
+      paidFor: const [ExpenseShare(participantId: 'p1', shares: 100)],
+    );
+
+    final input = (body['0'] as Map)['json'] as Map<String, dynamic>;
+    final expense = input['expense'] as Map<String, dynamic>;
+    expect(expense['isMultiPayer'], isTrue);
+    expect(expense['paidBySplitMode'], 'BY_AMOUNT');
+    expect(expense['paidByList'], [
+      {'participant': 'p1', 'shares': 1200},
+      {'participant': 'p2', 'shares': 1800},
+    ]);
+    expect(expense['amount'], 3000);
+  });
+
   test('an update reads the version first when the caller has none', () async {
     final requests = <String>[];
     final client = cloudClient((request) async {
