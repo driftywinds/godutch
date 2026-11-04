@@ -33,6 +33,7 @@ import '../services/receipt_downloader.dart';
 import '../widgets/receipt_download_indicator.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/grouped_section.dart';
+import '../widgets/scrolling_title.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../app_name.dart';
 import '../widgets/app_menu.dart';
@@ -390,7 +391,10 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_group?.name ?? appName),
+        // A long name is worth reading in full: 20 rather than the bar's 22
+        // fits a little more of it, and [ScrollingTitle] scrolls the rest
+        // sideways on a loop instead of cutting it off with an ellipsis.
+        title: ScrollingTitle(_group?.name ?? appName, style: const TextStyle(fontSize: 20)),
         // A meatballs menu, like spliit-ios's group toolbar (issue #3):
         // group settings, sharing the group's link, and its invite QR.
         actions: [

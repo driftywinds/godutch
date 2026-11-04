@@ -122,6 +122,48 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a long group name is set a little smaller in the title bar, and scrolls rather than cut off',
+    (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      const name =
+          'The Banff Trip with everyone from the office and all of their partners, dogs included';
+      await db.cacheGroup(const Group(
+        id: 'g1',
+        name: name,
+        currency: '\$',
+        participants: [Participant(id: 'p1', name: 'Ken')],
+      ));
+
+      final client = offlineClient();
+      final outbox = Outbox(db, client, groupId: 'g1');
+
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: GroupScreen(client: client, db: db, outbox: outbox, groupId: 'g1'),
+      ));
+      // Not pumpAndSettle: a title that scrolls is meant never to settle.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      final title = find.descendant(of: find.byType(AppBar), matching: find.text(name));
+      // 20 rather than Material's 22, so more of the name fits before it
+      // starts over.
+      expect(tester.widget<Text>(title.first).style?.fontSize, 20);
+      // Drawn twice and travelling, rather than ending in an ellipsis.
+      expect(title, findsNWidgets(2));
+
+      // See the first test above for why. (issue #47)
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
   // Issue #90: a tap opens the details sheet; editing (issue #17) is an
   // explicit action inside it.
   group('tap to view, then edit (issues #17, #90)', () {
