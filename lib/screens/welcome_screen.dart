@@ -361,37 +361,50 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
       appBar: AppBar(title: Text(l10n.signUpEmailTitle)),
       body: SingleChildScrollView(
         padding: withBottomInset(context, const EdgeInsets.all(16)),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_error != null) ...[
-                ErrorMessage(_error!),
-                const SizedBox(height: 12),
+        // AutofillGroup, so Android's autofill -- Bitwarden, Keyguard, a
+        // keychain -- sees the three fields as one form to fill and, when
+        // the screen closes, offers to save them (Android 8+).
+        child: AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null) ...[
+                  ErrorMessage(_error!),
+                  const SizedBox(height: 12),
+                ],
+                GroupedSection(children: [
+                  _field(_name, l10n.createAccountNameLabel,
+                      autofillHints: const [AutofillHints.name],
+                      textInputAction: TextInputAction.next),
+                  _field(_email, l10n.signInEmail,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [
+                        AutofillHints.newUsername,
+                        AutofillHints.email,
+                      ],
+                      textInputAction: TextInputAction.next),
+                  _field(_password, l10n.signInPassword,
+                      obscure: true,
+                      // A new password, so managers offer to generate and
+                      // save one rather than fill an old one in.
+                      autofillHints: const [AutofillHints.newPassword],
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _busy ? null : _submit()),
+                ]),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text(l10n.signUpEmailSubmit),
+                ),
               ],
-              GroupedSection(children: [
-                _field(_name, l10n.createAccountNameLabel,
-                    textInputAction: TextInputAction.next),
-                _field(_email, l10n.signInEmail,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next),
-                _field(_password, l10n.signInPassword,
-                    obscure: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _busy ? null : _submit()),
-              ]),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _busy ? null : _submit,
-                child: _busy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(l10n.signUpEmailSubmit),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -401,6 +414,7 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   Widget _field(TextEditingController controller, String label,
           {TextInputType? keyboardType,
           bool obscure = false,
+          List<String>? autofillHints,
           TextInputAction? textInputAction,
           ValueChanged<String>? onSubmitted}) =>
       Padding(
@@ -409,6 +423,9 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
           controller: controller,
           keyboardType: keyboardType,
           obscureText: obscure,
+          autofillHints: autofillHints,
+          autocorrect: false,
+          enableSuggestions: !obscure,
           textInputAction: textInputAction,
           onFieldSubmitted: onSubmitted,
           decoration: InputDecoration(labelText: label),
@@ -501,86 +518,99 @@ class _SignInScreenState extends State<SignInScreen> {
       appBar: AppBar(title: Text(l10n.signInTitle)),
       body: SingleChildScrollView(
         padding: withBottomInset(context, const EdgeInsets.all(16)),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_error != null) ...[
-                ErrorMessage(_error!),
-                const SizedBox(height: 12),
-              ],
-              GroupedSection(children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: TextFormField(
-                    controller: _email,
-                    autofocus: true,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(labelText: l10n.signInEmail),
-                    validator: (value) {
-                      final email = value?.trim() ?? '';
-                      if (email.isEmpty) return l10n.commonRequired;
-                      if (!email.contains('@')) return l10n.signInEmail;
-                      return null;
-                    },
-                  ),
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: TextFormField(
-                    controller: _password,
-                    obscureText: _obscure,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _busy ? null : _submit(),
-                    decoration: InputDecoration(
-                      labelText: l10n.signInPassword,
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscure
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                      ),
+        // AutofillGroup, so Android's autofill -- Bitwarden, Keyguard, a
+        // keychain -- sees the email and password as one form to fill and
+        // to offer to save (Android 8+).
+        child: AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null) ...[
+                  ErrorMessage(_error!),
+                  const SizedBox(height: 12),
+                ],
+                GroupedSection(children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextFormField(
+                      controller: _email,
+                      autofocus: true,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      // Signs the account in, so a manager fills it in;
+                      // both hints, since managers look for either.
+                      autofillHints: const [
+                        AutofillHints.username,
+                        AutofillHints.email,
+                      ],
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(labelText: l10n.signInEmail),
+                      validator: (value) {
+                        final email = value?.trim() ?? '';
+                        if (email.isEmpty) return l10n.commonRequired;
+                        if (!email.contains('@')) return l10n.signInEmail;
+                        return null;
+                      },
                     ),
-                    validator: (value) =>
-                        (value == null || value.isEmpty) ? l10n.commonRequired : null,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextFormField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      autofillHints: const [AutofillHints.password],
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _busy ? null : _submit(),
+                      decoration: InputDecoration(
+                        labelText: l10n.signInPassword,
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.isEmpty) ? l10n.commonRequired : null,
+                    ),
+                  ),
+                ]),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton(
+                    onPressed: _busy ? null : _forgot,
+                    child: Text(l10n.signInForgot),
                   ),
                 ),
-              ]),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TextButton(
-                  onPressed: _busy ? null : _forgot,
-                  child: Text(l10n.signInForgot),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.signInSubmit),
                 ),
-              ),
-              FilledButton(
-                onPressed: _busy ? null : _submit,
-                child: _busy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(l10n.signInSubmit),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: _busy
-                    ? null
-                    : () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                CreateAccountScreen(client: widget.client),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  CreateAccountScreen(client: widget.client),
+                            ),
                           ),
-                        ),
-                child: Text(l10n.signInNoAccount),
-              ),
-            ],
+                  child: Text(l10n.signInNoAccount),
+                ),
+              ],
+            ),
           ),
         ),
       ),
