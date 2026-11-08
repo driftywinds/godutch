@@ -734,7 +734,8 @@ void main() {
       expect(m.splitProblem(), isNull);
       final saved = m.amountsToSave()!;
       expect((saved.amount, saved.originalAmount), (1000, 565));
-      expect(m.paidFor()!.map((s) => (s.participantId, s.shares)), [('alex', 1000)]);
+      // Cloud's split is in the expense's own (paid-in) currency.
+      expect(m.paidFor()!.map((s) => (s.participantId, s.shares)), [('alex', 565)]);
 
       // Another rate fills it in again.
       m.rateField.typed();

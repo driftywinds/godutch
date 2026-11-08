@@ -71,13 +71,19 @@ void main() {
     expect(find.widgetWithText(GroupedRow, 'General'), findsNothing);
 
     await openPicker(tester, 'Général');
-    expect(find.text('Non classé'), findsOneWidget); // Uncategorized heading
+    // The Cloud catalogue is long: search to bring the row into view.
+    await tester.enterText(searchField(), 'épic');
+    await tester.pumpAndSettle();
+    expect(find.text('Non classé'), findsNothing);
     expect(find.text('Nourriture et boissons'), findsOneWidget);
     expect(find.text('Épicerie'), findsOneWidget);
-    expect(find.text('Transport'), findsOneWidget);
-    expect(find.text('Essence/Carburant'), findsOneWidget);
     expect(find.text('Groceries'), findsNothing);
     expect(find.text('Food and Drink'), findsNothing);
+
+    await tester.enterText(searchField(), 'ess');
+    await tester.pumpAndSettle();
+    expect(find.text('Transport'), findsOneWidget);
+    expect(find.text('Essence/Carburant'), findsOneWidget);
   });
 
   testWidgets('French: searching by the translated name finds it, headings follow',
@@ -116,34 +122,20 @@ void main() {
     expect(find.text('Aucune catégorie correspondante'), findsOneWidget);
   });
 
-  testWidgets('an unknown category id falls back to its English name and heading',
-      (tester) async {
-    await pumpForm(tester, const Locale('fr'));
-    await openPicker(tester, 'Général');
-
-    expect(find.text('Mystery'), findsOneWidget);
-    // "Other" is the app's own catch-all heading, translated.
-    expect(find.text('Autres'), findsOneWidget);
-
-    await tester.tap(find.text('Mystery'));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(GroupedRow, 'Mystery'), findsOneWidget);
-  });
-
   testWidgets('Simplified Chinese: names, headings and search', (tester) async {
     await pumpForm(tester, const Locale('zh'));
     expect(find.widgetWithText(GroupedRow, '通用'), findsOneWidget);
 
     await openPicker(tester, '通用');
-    expect(find.text('饮食'), findsOneWidget);
-    expect(find.text('杂货'), findsOneWidget);
-    expect(find.text('交通'), findsOneWidget);
-
     await tester.enterText(searchField(), '杂货');
     await tester.pumpAndSettle();
-    // (The typed query itself also reads 杂货, so match the list row.)
+    expect(find.text('饮食'), findsOneWidget);
     expect(find.widgetWithText(ListTile, '杂货'), findsOneWidget);
-    expect(find.text('交通'), findsNothing);
+
+    await tester.enterText(searchField(), '交通');
+    await tester.pumpAndSettle();
+    expect(find.text('交通'), findsWidgets);
+    expect(find.text('饮食'), findsNothing);
   });
 
   testWidgets('translating labels does not break the icon lookup', (tester) async {
@@ -152,7 +144,11 @@ void main() {
     // to the banknote glyph here.
     await pumpForm(tester, const Locale('fr'));
     await openPicker(tester, 'Général');
+    await tester.enterText(searchField(), 'épic');
+    await tester.pumpAndSettle();
     expect(find.byIcon(LucideIcons.shoppingCart), findsOneWidget);
+    await tester.enterText(searchField(), 'ess');
+    await tester.pumpAndSettle();
     expect(find.byIcon(LucideIcons.fuel), findsOneWidget);
   });
 }

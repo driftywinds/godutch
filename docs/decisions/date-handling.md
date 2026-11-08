@@ -51,10 +51,11 @@ Both directions, and both are real bugs affecting current data (not just future 
 
 ## Fix
 
-Added `lib/services/date_only.dart` -- a direct port of Spliit's own `dateOnlyToLocalDate`/`getTodayForDateInput`:
+Added `lib/services/date_only.dart` -- a direct port of Spliit's own date-only conversions:
 
-- `dateOnlyFromUtcMidnight(DateTime utcMidnight)` -- reads the UTC year/month/day and rebuilds a local `DateTime` at midnight on that day. Used in `SpliitClient.fetchExpenses` wherever `expenseDate` is parsed.
-- `dateOnlyToUtcMidnight(DateTime localDate)` -- reads the year/month/day off a local date (ignoring any time-of-day) and returns UTC midnight on that day. Used in `SpliitClient.createExpense` to build the outgoing `expenseDate`.
+- `dateOnlyFromStorage(DateTime)` -- reads the UTC year/month/day and rebuilds a local `DateTime` at midnight on that day. Used wherever an expense date is read: `SpliitClient.fetchExpenses`, the drift cache (`rowToExpense`, ordering), stats/date-span math, and display.
+- `dateOnlyForStorage(DateTime localDate)` -- reads the year/month/day off a local date (ignoring any time-of-day) and returns UTC midnight on that day, which is also how drift stores it. Used on every cache write and incoming refresh, so the cache can't reintroduce a local/UTC shift.
+- Schema 24 rewrites existing cached rows to that storage form once, so a pre-fix cache is corrected on upgrade.
 - Dropped the now-redundant `.toLocal()` in `GroupScreen`'s expense list -- `e.date` is already a correctly-decoded local calendar date by the time it reaches display code.
 
 New tests: `date_only.dart`'s own unit tests (including a timezone-independent assertion that runs correctly regardless of the test machine's local zone), a `fetchExpenses` regression test pinning the exact calendar date, and two `createExpense` tests confirming a picked date (even at 11pm) and the no-date default both always encode as exact UTC midnight.

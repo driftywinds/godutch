@@ -90,7 +90,7 @@ void main() {
       httpClient: MockClient((req) async {
         requests.add(req);
         final path = req.url.path;
-        if (path == '/api/s3-upload') {
+        if (path.endsWith('uploads.signReceiptUpload')) {
           final all = signs ?? [];
           final i = signCount++;
           if (all.isNotEmpty) {
@@ -98,12 +98,20 @@ void main() {
             if (r.statusCode != 200) return r;
           }
           return http.Response(
-              jsonEncode({
-                'key': 'document-$i.jpg',
-                'bucket': 'spliit',
-                'region': 'us-east-1',
-                'url': 'https://spliit.s3.amazonaws.com/document-$i.jpg?sig',
-              }),
+              jsonEncode([
+                {
+                  'result': {
+                    'data': {
+                      'json': {
+                        'key': 'document-$i.jpg',
+                        'bucket': 'spliit',
+                        'region': 'us-east-1',
+                        'url': 'https://spliit.s3.amazonaws.com/document-$i.jpg?sig',
+                      },
+                    },
+                  },
+                },
+              ]),
               200);
         }
         if (req.method == 'PUT') return http.Response('', 200);
@@ -380,7 +388,7 @@ void main() {
     final s = server(signs: [offline, () async => http.Response('', 200)]);
     await openForm(tester, db, s.client, _FakePicker());
     await addReceipt(tester);
-    int signs() => s.requests.where((r) => r.url.path == '/api/s3-upload').length;
+    int signs() => s.requests.where((r) => r.url.path.endsWith('uploads.signReceiptUpload')).length;
     expect(find.text('Not uploaded'), findsOneWidget);
     expect(signs(), 1);
 
@@ -482,12 +490,12 @@ void main() {
     await openForm(tester, db, s.client, picker);
 
     await addReceipt(tester);
-    expect(s.requests.where((r) => r.url.path == '/api/s3-upload'), isEmpty);
+    expect(s.requests.where((r) => r.url.path.endsWith('uploads.signReceiptUpload')), isEmpty);
 
     picker.photo = Uint8List.fromList([0]);
     await addReceipt(tester);
     expect(find.text("Couldn't add this photo."), findsOneWidget);
-    expect(s.requests.where((r) => r.url.path == '/api/s3-upload'), isEmpty);
+    expect(s.requests.where((r) => r.url.path.endsWith('uploads.signReceiptUpload')), isEmpty);
     await closeTree(tester);
   });
 
@@ -516,7 +524,7 @@ void main() {
     expect(opened, 1);
     expect(find.text('Camera access is off for Go Dutch.'), findsNothing);
     expect(loggedUnexpectedErrors, isEmpty);
-    expect(s.requests.where((r) => r.url.path == '/api/s3-upload'), isEmpty);
+    expect(s.requests.where((r) => r.url.path.endsWith('uploads.signReceiptUpload')), isEmpty);
     await closeTree(tester);
   });
 
@@ -586,7 +594,7 @@ void main() {
 
     expect(popped, [true]);
     final update = s.requests.lastWhere((r) => r.url.path.endsWith('groups.expenses.update'));
-    final sent = (jsonDecode(update.body)['0']['json']['expenseFormValues']['documents'] as List)
+    final sent = (jsonDecode(update.body)['0']['json']['expense']['documents'] as List)
         .cast<Map<String, dynamic>>();
     expect(sent.first, d2.toJson());
     expect(sent.last['url'], 'https://spliit.s3.us-east-1.amazonaws.com/document-0.jpg');

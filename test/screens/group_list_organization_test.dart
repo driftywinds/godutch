@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:godutch/app_name.dart';
@@ -92,6 +94,14 @@ void main() {
     return db;
   }
 
+  /// A Cloud that accepts every group action. The screen's sync is off
+  /// without an account, so the list stays the test's own.
+  SpliitClient fakeCloud() => SpliitClient(
+        baseUrl: 'https://example.test',
+        httpClient: MockClient((req) async => http.Response(
+            '[{"result":{"data":{"json":{}}}}]', 200)),
+      );
+
   Future<void> pump(WidgetTester tester, AppDatabase db,
       {Locale locale = const Locale('en'),
       double scale = 1,
@@ -106,7 +116,7 @@ void main() {
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(scale)),
             child: child!),
-        home: GroupListScreen(db: db, settings: settings)));
+        home: GroupListScreen(db: db, settings: settings, client: fakeCloud())));
     await tester.pumpAndSettle();
   }
 

@@ -116,22 +116,27 @@ class CloudConnection {
 
   /// Consumes every Better Auth cookie a response set. Session reads slide
   /// the expiry and rotate the token, so this must run on every response.
-  void absorb(http.Response response) {
+  /// Returns whether the jar changed -- the caller persists it, because a
+  /// rotation that only lives in memory is lost on the next launch.
+  bool absorb(http.Response response) {
     final raw = response.headers['set-cookie'] ??
         response.headers['Set-Cookie'] ??
         '';
-    if (raw.isEmpty) return;
+    if (raw.isEmpty) return false;
+    var changed = false;
     final pattern =
         RegExp(r'((?:__Secure-)?better-auth\.[A-Za-z0-9_.-]+)=([^;,\s]*)');
     for (final match in pattern.allMatches(raw)) {
       final name = match.group(1)!;
       final value = match.group(2)!;
       if (value.isEmpty) {
-        _cookies.remove(name);
-      } else {
+        changed = _cookies.remove(name) != null || changed;
+      } else if (_cookies[name] != value) {
         _cookies[name] = value;
+        changed = true;
       }
     }
+    return changed;
   }
 
   /// The browser origin Better Auth expects. The public API is on

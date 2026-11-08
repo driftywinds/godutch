@@ -429,10 +429,14 @@ class _ExpenseDetailsSheetState extends State<_ExpenseDetailsSheet> {
     final docsKnown = e.documentCount == 0 || _storedDocs!.length == e.documentCount;
     if (e.detailsFetchedAt != null && docsKnown) return;
     _detailsFetchStarted = true;
+    // A list or edit may land while this read is in flight; the response
+    // would then be older than what's cached. The database only accepts it
+    // if the group's expenses haven't changed meanwhile.
+    final generation = widget.db.expensesGeneration(widget.group.id);
     try {
       final fresh =
           await widget.client.fetchExpense(groupId: widget.group.id, expenseId: widget.expenseId);
-      await widget.db.cacheExpenseDetails(widget.group.id, fresh);
+      await widget.db.cacheExpenseDetails(widget.group.id, fresh, fetchedAtGeneration: generation);
       if (!mounted) return;
       setState(() {
         _fetchedDocs = fresh.documents;
@@ -871,7 +875,7 @@ class _ExpenseDetailsSheetState extends State<_ExpenseDetailsSheet> {
                 ),
               ),
             // How it was split: information, in the text color (#226).
-            Text(_splitLabel(context, e.splitMode), style: theme.textTheme.bodyMedium),
+            Text(_splitLabel(context, e), style: theme.textTheme.bodyMedium),
           ]),
         ),
         // Past the monogram, under the name.
@@ -1409,9 +1413,10 @@ class _ExpenseDetailsSheetState extends State<_ExpenseDetailsSheet> {
     return currency.symbol.isEmpty ? code : currency.symbol;
   }
 
-  String _splitLabel(BuildContext context, SplitMode mode) {
+  String _splitLabel(BuildContext context, Expense e) {
     final l10n = context.l10n;
-    return switch (mode) {
+    if (e.isItemized) return l10n.expenseSplitItemized;
+    return switch (e.splitMode) {
       SplitMode.evenly => l10n.expenseSplitEvenly,
       SplitMode.byShares => l10n.expenseSplitShares,
       SplitMode.byPercentage => l10n.expenseSplitPercent,

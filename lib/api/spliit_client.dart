@@ -12,6 +12,7 @@ import '../models/expense.dart';
 import '../models/group.dart';
 import '../services/device_time_zone.dart';
 import '../services/error_reporting.dart';
+import '../services/expense_shares.dart';
 import 'cloud_connection.dart';
 
 /// Coerces an id-shaped field to a String. Cloud ids are cuid/uuid strings,
@@ -35,10 +36,19 @@ class SpliitClient {
   final http.Client _http;
   final CloudConnection connection;
 
+  /// How long any one tRPC or auth request may take. Cloud can stall (a
+  /// self-hosted instance behind a proxy, a dropped connection), and a
+  /// request with no deadline blocks the serialized outbox and the screen's
+  /// whole sync loop behind it. Callers that need longer (receipt uploads)
+  /// have their own.
+  static const defaultTimeout = Duration(seconds: 30);
+  final Duration timeout;
+
   SpliitClient({
     required this.baseUrl,
     http.Client? httpClient,
     CloudConnection? connection,
+    this.timeout = defaultTimeout,
   })  : _http = httpClient ?? http.Client(),
         connection = connection ??
             CloudConnection.current ??
@@ -67,7 +77,9 @@ class SpliitClient {
       };
 
   void _rememberCookies(http.Response response) {
-    connection.absorb(response);
+    // A rotated session token must survive the process: persist it as soon
+    // as it arrives rather than only on a sign-in/sign-out response.
+    if (connection.absorb(response)) unawaited(connection.save());
   }
 
   dynamic _decodeBatch(http.Response response) {
@@ -84,6 +96,12 @@ class SpliitClient {
     try {
       decoded = jsonDecode(response.body);
     } on FormatException catch (e) {
+      // An error page from a proxy or the server itself is an HTTP
+      // failure, not a malformed tRPC answer: keep its status so a 502/503
+      // is retried as a connection problem and a 4xx is not logged as a bug.
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw SpliitApiException(response.statusCode, response.body);
+      }
       throw SpliitResponseFormatException('Not JSON: $e');
     }
     final first = decoded is List
@@ -124,19 +142,22 @@ class SpliitClient {
   }
 
   Future<dynamic> _query(String procedure, [Map<String, dynamic>? input]) async {
-    final response = await _http.get(_trpcUri(procedure, input: input),
-        headers: _headers(json: false));
+    final response = await _http
+        .get(_trpcUri(procedure, input: input), headers: _headers(json: false))
+        .timeout(timeout);
     return _decodeBatch(response);
   }
 
   Future<dynamic> _mutate(String procedure, [Map<String, dynamic>? input]) async {
-    final response = await _http.post(
-      Uri.parse('$_trimmedBase/trpc/$procedure?batch=1'),
-      headers: _headers(),
-      body: jsonEncode({
-        '0': {'json': input ?? const {}}
-      }),
-    );
+    final response = await _http
+        .post(
+          Uri.parse('$_trimmedBase/trpc/$procedure?batch=1'),
+          headers: _headers(),
+          body: jsonEncode({
+            '0': {'json': input ?? const {}}
+          }),
+        )
+        .timeout(timeout);
     return _decodeBatch(response);
   }
 
@@ -151,10 +172,11 @@ class SpliitClient {
     final headers = _headers(json: body != null);
     final http.Response response;
     if (method == 'GET') {
-      response = await _http.get(uri, headers: headers);
+      response = await _http.get(uri, headers: headers).timeout(timeout);
     } else {
-      response = await _http.post(uri,
-          headers: headers, body: jsonEncode(body ?? const {}));
+      response = await _http
+          .post(uri, headers: headers, body: jsonEncode(body ?? const {}))
+          .timeout(timeout);
     }
     _rememberCookies(response);
     Map<String, dynamic> decoded;
@@ -591,6 +613,8 @@ class SpliitClient {
       paidBy: paidByList.isEmpty ? legacyPaidBy : paidByList.first.participantId,
       paidFor: paidFor,
       splitMode: SplitModeWire.fromWire(json['splitMode'] as String? ?? 'EVENLY'),
+      splitModeTag: json['splitMode'] as String? ?? '',
+      paidBySplitModeTag: json['paidBySplitMode'] as String? ?? '',
       categoryId: categoryId,
       category: localCategory,
       paidByList: paidByList.isEmpty && legacyPaidBy.isNotEmpty
@@ -987,6 +1011,13 @@ class SpliitClient {
   }) {
     final categoryId =
         isSettlement ? cloudSettlementCategoryId : cloudCategoryIdForLocal(category);
+    // Cloud's `amount` is in the expense's own currency, and so are a
+    // BY_AMOUNT split's shares: when the expense was entered in another
+    // currency, that's the paid-in one, and the server works out the
+    // group's total from the conversion rate. Sending the group amount here
+    // as well would convert it twice.
+    final converting = originalCurrency != null && originalCurrency.isNotEmpty;
+    final inputAmount = converting ? (originalAmountCents ?? amountCents) : amountCents;
     // Everyone who paid: Cloud records several, each for a part of the
     // amount, and flags the expense as having more than one. One payer --
     // the usual, and everything this app wrote before multi-payer --
@@ -994,13 +1025,46 @@ class SpliitClient {
     final payerList = payers == null || payers.isEmpty
         ? [ExpenseShare(participantId: paidBy, shares: amountCents)]
         : payers;
+    // The payers' shares are in the group's currency (what the form asks);
+    // Cloud wants them in the expense's, adding up to its amount. Rescale
+    // in proportion, with the same remainder handling as a split, so they
+    // add up exactly.
+    final wirePayers = !converting
+        ? payerList
+        : payerList.length == 1
+            ? [ExpenseShare(participantId: payerList.single.participantId, shares: inputAmount)]
+            : [
+                for (final MapEntry(:key, :value) in shareCentsFor(
+                  amountCents: inputAmount,
+                  splitMode: SplitMode.byShares,
+                  paidFor: payerList,
+                ).entries)
+                  ExpenseShare(participantId: key, shares: value),
+              ];
+    // The form's amounts are in the group's currency (it converts a typed
+    // paid-in amount forward); Cloud wants a BY_AMOUNT split in the
+    // expense's own currency, adding up to its amount.
+    final wirePaidFor = converting && splitMode == SplitMode.byAmount
+        ? [
+            for (final MapEntry(:key, :value) in shareCentsFor(
+              amountCents: inputAmount,
+              splitMode: SplitMode.byShares,
+              paidFor: paidFor,
+            ).entries)
+              ExpenseShare(participantId: key, shares: value),
+          ]
+        : paidFor;
+    // The lines are what Cloud itself works an itemized split out from; a
+    // flat expense sends none. The flag is Cloud's own, so the web app and
+    // this one agree on what kind of expense it is.
+    final itemized = items != null && items.isNotEmpty;
     return {
       'expenseDate': DeviceTimeZone.instantForDate(date, timeZone).toIso8601String(),
       'expenseTimeZone': timeZone,
       'title': title,
       'category': categoryId,
-      'amount': amountCents,
-      if (originalCurrency != null && originalCurrency.isNotEmpty)
+      'amount': inputAmount,
+      if (converting)
         'conversion': {
           if (conversionRate != null) ...{
             'type': 'custom',
@@ -1012,10 +1076,10 @@ class SpliitClient {
           },
         },
       'paidBySplitMode': 'BY_AMOUNT',
-      'paidByList': [for (final p in payerList) p.toJson()],
-      'paidFor': [for (final s in paidFor) s.toJson()],
-      'isMultiPayer': payerList.length > 1,
-      'splitMode': splitMode.wireValue,
+      'paidByList': [for (final p in wirePayers) p.toJson()],
+      'paidFor': [for (final s in wirePaidFor) s.toJson()],
+      'isMultiPayer': wirePayers.length > 1,
+      'splitMode': itemized ? 'ITEMIZED' : splitMode.wireValue,
       'documents': [for (final d in documents) d.toJson()],
       'notes': notes,
       'recurrenceRule': recurrenceRule.wireValue,

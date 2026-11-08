@@ -62,9 +62,13 @@ List<ParticipantSpending> computeParticipantSpending(
   for (final e in expenses) {
     if (e.isSettlement) continue;
 
-    if (paid.containsKey(e.paidBy)) {
-      paid[e.paidBy] = paid[e.paidBy]! + e.amountCents;
-      paidCount[e.paidBy] = paidCount[e.paidBy]! + 1;
+    // Several people can have paid one expense, each for a part: count
+    // every payer, not just the first ([Expense.paidBy] is only a
+    // single-payer fallback).
+    for (final entry in expensePaidCents(e).entries) {
+      if (!paid.containsKey(entry.key)) continue;
+      paid[entry.key] = paid[entry.key]! + entry.value;
+      if (entry.value != 0) paidCount[entry.key] = paidCount[entry.key]! + 1;
     }
     for (final entry in expenseShareCents(e).entries) {
       if (share.containsKey(entry.key)) {

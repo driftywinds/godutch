@@ -81,6 +81,35 @@ void main() {
       final result = computeParticipantSpending(participants, expenses);
       expect(result.every((p) => p.paidCents == 0), isTrue);
     });
+
+    test('credits every payer of a multi-payer expense', () {
+      final expenses = [
+        Expense(
+          id: 'e1',
+          groupId: 'g1',
+          title: 'Taxi',
+          amountCents: 3000,
+          paidBy: 'alex',
+          paidByList: const [
+            ExpenseShare(participantId: 'alex', shares: 1000),
+            ExpenseShare(participantId: 'bea', shares: 2000),
+          ],
+          paidFor: const [
+            ExpenseShare(participantId: 'alex', shares: 1),
+            ExpenseShare(participantId: 'bea', shares: 1),
+            ExpenseShare(participantId: 'cid', shares: 1),
+          ],
+          date: DateTime.utc(2026, 9, 1),
+        ),
+      ];
+      final result = computeParticipantSpending(participants, expenses);
+      final byId = {for (final p in result) p.participantId: p};
+      expect(byId['alex']!.paidCents, 1000);
+      expect(byId['bea']!.paidCents, 2000);
+      expect(byId['alex']!.paidCount, 1);
+      expect(byId['bea']!.paidCount, 1);
+      expect(byId['cid']!.paidCents, 0);
+    });
   });
 
   group('computeCategorySpending', () {

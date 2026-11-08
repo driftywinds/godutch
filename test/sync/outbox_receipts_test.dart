@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 import 'package:godutch/api/spliit_client.dart';
 import 'package:godutch/db/app_database.dart';
 import 'package:godutch/models/expense.dart';
+import 'package:godutch/models/group.dart';
 import 'package:godutch/services/receipt_cache.dart';
 import 'package:godutch/sync/outbox.dart';
 
@@ -47,9 +48,9 @@ class _Spliit {
     baseUrl: 'https://spliit.test',
     httpClient: MockClient((req) async {
       final step = switch (req.url.path) {
-        '/api/s3-upload' => 'sign',
+        final p when p.endsWith('uploads.presign') => 'sign',
         final p when p.startsWith('/put/') => 'put',
-        final p when p.startsWith('/b/') => 'head',
+        final p when p.startsWith('/files/') => 'head',
         final p when p.endsWith('groups.expenses.create') => 'create',
         final p => throw StateError('unexpected request $p'),
       };
@@ -63,19 +64,21 @@ class _Spliit {
       switch (step) {
         case 'sign':
           final key = 'document-${_id('k')}.jpg';
-          return _json(
-              {'key': key, 'bucket': 'b', 'endpoint': 'https://bucket.test', 'url': 'https://bucket.test/put/$key'});
+          return _trpc({
+            'uploadUrl': 'https://bucket.test/put/$key',
+            'fileUrl': 'https://bucket.test/files/$key',
+          });
         case 'put':
           if (dropPut != null && count('put') >= dropPut!) throw http.ClientException('dropped');
-          bucket['https://bucket.test/b/${req.url.pathSegments.last}'] = req.bodyBytes;
+          bucket['https://bucket.test/files/${req.url.pathSegments.last}'] = req.bodyBytes;
           return http.Response('', 200);
         case 'head':
           return http.Response('', bucket.containsKey(req.url.toString()) ? 200 : 403);
         case 'create':
-          final values = jsonDecode(req.body)['0']['json']['expenseFormValues'] as Map;
+          final expense = jsonDecode(req.body)['0']['json']['expense'] as Map;
           final id = _id('server');
           expenses[id] = [
-            for (final d in values['documents'] as List) {...(d as Map).cast<String, Object?>(), 'id': _id('srv-doc')},
+            for (final d in expense['documents'] as List) {...(d as Map).cast<String, Object?>(), 'id': _id('srv-doc')},
           ];
           return _trpc({'expenseId': id});
         default:
@@ -122,6 +125,14 @@ void main() {
     ReceiptCache.use(cache);
     spliit = _Spliit();
     photos = 0;
+    // Cloud's presign is ledger-bound: a joined group knows its ledger.
+    await db.cacheGroup(const Group(
+      id: 'g1',
+      name: 'Trip',
+      currency: '\$',
+      participants: [],
+      ledgerId: 'ledger-1',
+    ));
   });
   tearDown(() async {
     await db.close();
@@ -258,24 +269,24 @@ void main() {
 
   test('an interrupted upload whose object arrived isn\'t sent again', () async {
     await pendingWith('local-1',
-        [(AttachmentState.uploading, 'https://bucket.test/b/document-early.jpg')]);
-    spliit.bucket['https://bucket.test/b/document-early.jpg'] = [1];
+        [(AttachmentState.uploading, 'https://bucket.test/files/document-early.jpg')]);
+    spliit.bucket['https://bucket.test/files/document-early.jpg'] = [1];
 
     await flush();
 
     expect((spliit.count('sign'), spliit.count('put')), (0, 0));
     expect(spliit.expenses[(await onlyRow()).id]!.single['url'],
-        'https://bucket.test/b/document-early.jpg');
+        'https://bucket.test/files/document-early.jpg');
   });
 
   test('an interrupted upload whose object never arrived is signed and sent again', () async {
-    await pendingWith('local-1', [(AttachmentState.uploading, 'https://bucket.test/b/document-lost.jpg')]);
+    await pendingWith('local-1', [(AttachmentState.uploading, 'https://bucket.test/files/document-lost.jpg')]);
 
     await flush();
 
     expect((spliit.count('head'), spliit.count('sign')), (1, 1));
     final url = spliit.expenses[(await onlyRow()).id]!.single['url'];
-    expect(url, isNot('https://bucket.test/b/document-lost.jpg'));
+    expect(url, isNot('https://bucket.test/files/document-lost.jpg'));
     expect(spliit.bucket, contains(url));
   });
 
@@ -283,7 +294,7 @@ void main() {
       () async {
     expectUnexpectedError<SpliitApiException>('Syncing expense local-1');
     await pendingWith('local-1');
-    spliit.failing['sign'] = 500;
+    spliit.failing['sign'] = 400;
 
     await flush();
     spliit.failing.clear();
@@ -291,7 +302,7 @@ void main() {
 
     final row = await onlyRow();
     expect((row.pending, row.syncFailed), (true, true));
-    expect(row.lastError, contains('SpliitApiException(500)'));
+    expect(row.lastError, contains('SpliitApiException(400)'));
     expect(await attachments('local-1'), hasLength(1));
     expect(spliit.count('sign'), 1);
 
@@ -304,7 +315,7 @@ void main() {
   test('Sync without receipts drops the photos, then the expense syncs without them', () async {
     expectUnexpectedError<SpliitApiException>('Syncing expense local-1');
     await pendingWith('local-1');
-    spliit.failing['sign'] = 500;
+    spliit.failing['sign'] = 400;
     await flush();
 
     await db.retrySyncFailure('local-1', withoutReceipts: true);

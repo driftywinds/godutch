@@ -45,7 +45,7 @@ void main() {
   String url(String name) => 'https://bucket.test/document-$name.jpg';
 
   Future<List<String>> filesOnDisk() async =>
-      [await for (final f in dir.list()) f.path.split('/').last]..sort();
+      [await for (final f in dir.list()) f.path.split(RegExp(r'[\\/]')).last]..sort();
 
   test('downloads a receipt once, then serves it from this device', () async {
     final receipts = cache();

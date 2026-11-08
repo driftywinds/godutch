@@ -57,3 +57,22 @@ DateTime dateOnlyFromUtcMidnight(DateTime utcMidnight) {
 DateTime dateOnlyToUtcMidnight(DateTime localDate) {
   return DateTime.utc(localDate.year, localDate.month, localDate.day);
 }
+
+/// How this app stores a calendar date in SQLite: midnight UTC on that day.
+///
+/// Drift keeps a `DateTime` as an instant, so a local-midnight value means a
+/// different calendar day once the phone is in another timezone -- a trip
+/// must not move an expense to the day before. Midnight UTC is stable in the
+/// database; [dateOnlyFromStorage] reads the three numbers back.
+DateTime dateOnlyForStorage(DateTime localDate) =>
+    DateTime.utc(localDate.year, localDate.month, localDate.day);
+
+/// A date written by [dateOnlyForStorage], as a local calendar date again.
+///
+/// Drift reconstructs the stored instant in the phone's current local time
+/// (midnight UTC can be 16:00 the previous day in Los Angeles), so undo that
+/// with `.toUtc()` first and then take the day it names.
+DateTime dateOnlyFromStorage(DateTime stored) {
+  final utc = stored.toUtc();
+  return DateTime(utc.year, utc.month, utc.day);
+}

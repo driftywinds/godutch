@@ -16,6 +16,7 @@ import 'package:godutch/models/category.dart';
 import 'package:godutch/models/expense.dart';
 import 'package:godutch/models/group.dart';
 import 'package:godutch/screens/expense_details_sheet.dart';
+import 'package:godutch/services/error_reporting.dart';
 import 'package:godutch/services/receipt_cache.dart';
 import 'package:godutch/theme.dart';
 import 'package:godutch/utils/markdown_note.dart';
@@ -109,8 +110,20 @@ void main() {
   const notFound =
       '[{"error":{"json":{"message":"Expense not found","code":-32004,"data":{"code":"NOT_FOUND"}}}}]';
 
+  const noComments =
+      '[{"result":{"data":{"json":{"comments":[]}}}}]';
+
   SpliitClient serverClient(Future<http.Response> Function(http.Request req) handler) =>
-      SpliitClient(baseUrl: 'https://example.test', httpClient: MockClient(handler));
+      SpliitClient(
+          baseUrl: 'https://example.test',
+          httpClient: MockClient((req) async {
+            // The sheet reads comments on open; none of these tests are
+            // about them, so answer them here instead of in each handler.
+            if (req.url.path.endsWith('groups.expenses.comments.list')) {
+              return http.Response(noComments, 200);
+            }
+            return handler(req);
+          }));
 
   final offlineClient = serverClient((_) async => throw http.ClientException('offline'));
 
@@ -563,7 +576,7 @@ void main() {
   testWidgets('Edit on a malformed response says so, logged, with details', (tester) async {
     final db = await cachedDb();
     addTearDown(db.close);
-    expectUnexpectedError<TypeError>('Fetching expense e1 to edit');
+    expectUnexpectedError<SpliitResponseFormatException>('Fetching expense e1 to edit');
     await openSheet(tester, db,
         client: serverClient((_) async => http.Response('[{"result":{"data":{"json":{}}}}]', 200)));
 
@@ -656,7 +669,7 @@ void main() {
     await tester.tap(save);
     await tester.pumpAndSettle();
 
-    final sent = jsonDecode(update!.body)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+    final sent = jsonDecode(update!.body)['0']['json']['expense'] as Map<String, dynamic>;
     expect(sent['title'], 'Dinner by the lake');
     expect(sent['documents'], receipts);
     await closeTree(tester);
@@ -1145,7 +1158,7 @@ void main() {
 
       expect(haptics, ['HapticFeedbackType.lightImpact']); // #179
       final sent = (jsonDecode(deleteRequest!.body) as Map<String, dynamic>)['0']['json'];
-      expect(sent, {'groupId': 'g1', 'expenseId': 'e1', 'participantId': 'bea'});
+      expect(sent, {'groupId': 'g1', 'expenseId': 'e1'});
       expect(find.byType(BottomSheet), findsNothing);
       expect(result, isTrue);
       expect(await tester.runAsync(() => db.expensesForGroup('g1')), isEmpty);

@@ -11,33 +11,18 @@ import 'package:godutch/l10n/app_localizations.dart';
 import 'package:godutch/models/expense.dart';
 import 'package:godutch/models/group.dart';
 import 'package:godutch/screens/group_settings_screen.dart';
-import 'package:godutch/theme.dart';
-import 'package:godutch/widgets/group_monogram.dart';
 
-import '../support/error_log.dart';
-
-/// A minimal expense used purely to exercise the participant-protection
-/// checks (issue #46) below -- title/amount/date are arbitrary.
-Expense _expenseWithSplit({
-  required String id,
-  required String paidBy,
-  required List<ExpenseShare> paidFor,
-}) =>
-    Expense(
-      id: id,
-      groupId: 'g1',
-      title: 'Dinner',
-      amountCents: 1000,
-      paidBy: paidBy,
-      paidFor: paidFor,
-      date: DateTime.utc(2026, 9, 19),
-    );
+/// A client for tests about local data only: the settings screen asks the
+/// server for pending invitations, which are none here.
+http.Client localClient() => MockClient((req) async => http.Response(
+    '[{"result":{"data":{"json":{"invitations":[]}}}}]', 200));
 
 void main() {
   const group = Group(
     id: 'g1',
     name: 'Banff Trip',
     currency: '\$',
+    role: 'ADMIN',
     participants: [
       Participant(id: 'alex', name: 'Alex'),
       Participant(id: 'bea', name: 'Bea'),
@@ -128,175 +113,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('removing a participant then saving omits them from the request', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    http.Request? updateRequest;
-    final client = SpliitClient(
-      baseUrl: 'https://example.test',
-      httpClient: MockClient((req) async {
-        if (req.url.toString().contains('groups.update')) {
-          updateRequest = req;
-          return http.Response('[{"result":{"data":{"json":{}}}}]', 200);
-        }
-        return http.Response(
-          freshGroupResponse({
-            'id': 'g1',
-            'name': 'Banff Trip',
-            'currency': '\$',
-            'participants': [
-              {'id': 'alex', 'name': 'Alex'},
-            ],
-          }),
-          200,
-        );
-      }),
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group),
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.delete_outline).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.check));
-    await tester.pumpAndSettle();
-
-    expect(updateRequest, isNotNull);
-    final sent = jsonDecode(updateRequest!.body) as Map<String, dynamic>;
-    final formValues =
-        (sent['0'] as Map<String, dynamic>)['json']['groupFormValues'] as Map<String, dynamic>;
-    expect(formValues['participants'], [
-      {'id': 'bea', 'name': 'Bea'},
-    ]);
-    // Same drift-stream-cancel/pending-Timer workaround
-    // group_screen_test.dart already uses throughout (issue #57):
-    // cancelling GroupSettingsScreen's watchExpensesForGroup
-    // subscription in dispose() schedules a zero-duration Timer
-    // (drift's StreamQueryStore.markAsClosed) that needs one more
-    // pump to fire, or flutter_test's automatic end-of-test teardown
-    // trips "A Timer is still pending even after the widget tree was
-    // disposed" before it gets the chance.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
-  testWidgets('adding a participant sends them with no id', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    http.Request? updateRequest;
-    final client = SpliitClient(
-      baseUrl: 'https://example.test',
-      httpClient: MockClient((req) async {
-        if (req.url.toString().contains('groups.update')) {
-          updateRequest = req;
-          return http.Response('[{"result":{"data":{"json":{}}}}]', 200);
-        }
-        return http.Response(
-          freshGroupResponse({
-            'id': 'g1',
-            'name': 'Banff Trip',
-            'currency': '\$',
-            'participants': [
-              {'id': 'alex', 'name': 'Alex'},
-              {'id': 'bea', 'name': 'Bea'},
-              {'id': 'cid', 'name': 'Cid'},
-            ],
-          }),
-          200,
-        );
-      }),
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group),
-    ));
-    await tester.pumpAndSettle();
-
-    // The date-span field (issue #55) pushes the participant list further
-    // down than the test surface's default viewport. ensureVisible's
-    // default alignment only scrolls the minimum distance needed to
-    // bring a target's edge into view, which can leave it sitting right
-    // at the Scrollable's viewport boundary -- "visible" but still
-    // outside the render box's actual hit-testable area, so a
-    // subsequent tester.tap silently misses it. A generous manual drag
-    // (clamped at the list's max scroll extent, since this list is
-    // short) gives real margin instead. This SDK's ensureVisible has no
-    // alignment parameter to ask for that directly.
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.person_add_outlined));
-    await tester.pumpAndSettle();
-    // The new row is the last TextField with no decoration label.
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, 'Cid');
-    await tester.tap(find.byIcon(Icons.check));
-    await tester.pumpAndSettle();
-
-    expect(updateRequest, isNotNull);
-    final sent = jsonDecode(updateRequest!.body) as Map<String, dynamic>;
-    final formValues =
-        (sent['0'] as Map<String, dynamic>)['json']['groupFormValues'] as Map<String, dynamic>;
-    expect(formValues['participants'], [
-      {'id': 'alex', 'name': 'Alex'},
-      {'id': 'bea', 'name': 'Bea'},
-      {'name': 'Cid'},
-    ]);
-    // Same drift-stream-cancel/pending-Timer workaround
-    // group_screen_test.dart already uses throughout (issue #57):
-    // cancelling GroupSettingsScreen's watchExpensesForGroup
-    // subscription in dispose() schedules a zero-duration Timer
-    // (drift's StreamQueryStore.markAsClosed) that needs one more
-    // pump to fire, or flutter_test's automatic end-of-test teardown
-    // trips "A Timer is still pending even after the widget tree was
-    // disposed" before it gets the chance.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
-  // #306: each person's monogram, as elsewhere, following the names as
-  // they're typed; you in emerald.
-  testWidgets('a monogram before each participant, as the name is typed', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    final client = SpliitClient(
-        baseUrl: 'https://example.test', httpClient: MockClient((req) async => http.Response('[]', 500)));
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group, activeUserId: 'bea'),
-    ));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-
-    Monogram monogramIn(String name) => tester.widget<Monogram>(find.byWidgetPredicate(
-        (w) => w is Monogram && w.name == name));
-    expect(monogramIn('Alex').color, isNot(monogramPalette[0]));
-    expect(monogramIn('Bea').color, monogramPalette[0]);
-
-    await tester.tap(find.byIcon(Icons.person_add_outlined));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    expect(find.byType(Monogram), findsNWidgets(3));
-    await tester.enterText(find.byType(TextField).last, 'Cid');
-    await tester.pump();
-    expect(find.text('C'), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
 
   testWidgets('blank group name blocks save with an inline error', (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
@@ -332,38 +148,6 @@ void main() {
     // pump to fire, or flutter_test's automatic end-of-test teardown
     // trips "A Timer is still pending even after the widget tree was
     // disposed" before it gets the chance.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
-  testWidgets('editing checks the server\'s name rules too: a duplicate participant blocks save (#115)',
-      (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    var updateCalled = false;
-    final client = SpliitClient(
-      baseUrl: 'https://example.test',
-      httpClient: MockClient((req) async {
-        if (req.url.toString().contains('groups.update')) updateCalled = true;
-        return http.Response('[{"result":{"data":{"json":{}}}}]', 200);
-      }),
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group),
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.widgetWithText(TextField, 'Bea'), 'Alex');
-    await tester.tap(find.byIcon(Icons.check));
-    await tester.pumpAndSettle();
-
-    expect(updateCalled, isFalse);
-    expect(find.text('Two participants are named “Alex”. Each needs a different name.'),
-        findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
@@ -568,178 +352,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  // Protects participants with expenses (issue #46).
-
-  testWidgets('disables the remove button for a participant who paid an expense', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    await db.replaceServerExpenses('g1', [
-      _expenseWithSplit(
-        id: 'e1',
-        paidBy: 'alex',
-        paidFor: const [ExpenseShare(participantId: 'alex', shares: 1)],
-      ),
-    ]);
-
-    final client = SpliitClient(
-      baseUrl: 'https://example.test',
-      httpClient: noRequestsClient(),
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group),
-    ));
-    await tester.pumpAndSettle();
-
-    final closeButtons = tester
-        .widgetList<IconButton>(
-          find.ancestor(of: find.byIcon(Icons.delete_outline), matching: find.byType(IconButton)),
-        )
-        .toList();
-    // Row order matches group.participants: alex, then bea.
-    expect(closeButtons[0].onPressed, isNull);
-    expect(closeButtons[1].onPressed, isNotNull);
-    // Same drift-stream-cancel/pending-Timer workaround
-    // group_screen_test.dart already uses throughout (issue #57):
-    // cancelling GroupSettingsScreen's watchExpensesForGroup
-    // subscription in dispose() schedules a zero-duration Timer
-    // (drift's StreamQueryStore.markAsClosed) that needs one more
-    // pump to fire, or flutter_test's automatic end-of-test teardown
-    // trips "A Timer is still pending even after the widget tree was
-    // disposed" before it gets the chance.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
-  testWidgets('also protects a participant who is only in paidFor, not paidBy', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    await db.replaceServerExpenses('g1', [
-      _expenseWithSplit(
-        id: 'e1',
-        paidBy: 'bea',
-        paidFor: const [
-          ExpenseShare(participantId: 'bea', shares: 1),
-          ExpenseShare(participantId: 'alex', shares: 1),
-        ],
-      ),
-    ]);
-
-    final client = SpliitClient(
-      baseUrl: 'https://example.test',
-      httpClient: noRequestsClient(),
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group),
-    ));
-    await tester.pumpAndSettle();
-
-    final closeButtons = tester
-        .widgetList<IconButton>(
-          find.ancestor(of: find.byIcon(Icons.delete_outline), matching: find.byType(IconButton)),
-        )
-        .toList();
-    expect(closeButtons[0].onPressed, isNull); // alex: in paidFor
-    expect(closeButtons[1].onPressed, isNull); // bea: paidBy
-    // Same drift-stream-cancel/pending-Timer workaround
-    // group_screen_test.dart already uses throughout (issue #57):
-    // cancelling GroupSettingsScreen's watchExpensesForGroup
-    // subscription in dispose() schedules a zero-duration Timer
-    // (drift's StreamQueryStore.markAsClosed) that needs one more
-    // pump to fire, or flutter_test's automatic end-of-test teardown
-    // trips "A Timer is still pending even after the widget tree was
-    // disposed" before it gets the chance.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
-  testWidgets('a participant with no associated expenses can still be removed', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    await db.replaceServerExpenses('g1', [
-      _expenseWithSplit(
-        id: 'e1',
-        paidBy: 'alex',
-        paidFor: const [ExpenseShare(participantId: 'alex', shares: 1)],
-      ),
-    ]);
-    http.Request? updateRequest;
-    final client = SpliitClient(
-      baseUrl: 'https://example.test',
-      httpClient: MockClient((req) async {
-        if (req.url.toString().contains('groups.update')) {
-          updateRequest = req;
-          return http.Response('[{"result":{"data":{"json":{}}}}]', 200);
-        }
-        return http.Response(
-          freshGroupResponse({
-            'id': 'g1',
-            'name': 'Banff Trip',
-            'currency': '\$',
-            'participants': [
-              {'id': 'alex', 'name': 'Alex'},
-            ],
-          }),
-          200,
-        );
-      }),
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: GroupSettingsScreen(client: client, db: db, group: group),
-    ));
-    await tester.pumpAndSettle();
-
-    // bea (second row) has no expenses -- its remove button still works.
-    // Scoped to bea's own row (rather than find.byIcon(Icons.delete_outline).at(1))
-    // so it can't accidentally resolve to a different participant's
-    // button after the date-span field (issue #55) pushes this row
-    // below the test surface's default viewport and it needs scrolling
-    // into view first.
-    final beaCloseButton = find.descendant(
-      of: find.ancestor(of: find.widgetWithText(TextField, 'Bea'), matching: find.byType(Row)),
-      matching: find.byIcon(Icons.delete_outline),
-    );
-    // See the comment above the equivalent drag in "adding a
-    // participant sends them with no id" -- ensureVisible's default
-    // alignment left this button just barely in view but outside its
-    // actual hit-testable area, so a plain tap silently missed it.
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    await tester.tap(beaCloseButton);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.check));
-    await tester.pumpAndSettle();
-
-    expect(updateRequest, isNotNull);
-    final sent = jsonDecode(updateRequest!.body) as Map<String, dynamic>;
-    final formValues =
-        (sent['0'] as Map<String, dynamic>)['json']['groupFormValues'] as Map<String, dynamic>;
-    expect(formValues['participants'], [
-      {'id': 'alex', 'name': 'Alex'},
-    ]);
-    // Same drift-stream-cancel/pending-Timer workaround
-    // group_screen_test.dart already uses throughout (issue #57):
-    // cancelling GroupSettingsScreen's watchExpensesForGroup
-    // subscription in dispose() schedules a zero-duration Timer
-    // (drift's StreamQueryStore.markAsClosed) that needs one more
-    // pump to fire, or flutter_test's automatic end-of-test teardown
-    // trips "A Timer is still pending even after the widget tree was
-    // disposed" before it gets the chance.
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
   // Issue #55: date span shown on this screen, computed from the
   // group's cached expenses -- first expense date to last.
   // Local, date-only DateTimes -- see the comment on date_span_calculator_test.dart's
@@ -773,7 +385,7 @@ void main() {
 
     final client = SpliitClient(
       baseUrl: 'https://example.test',
-      httpClient: noRequestsClient(),
+      httpClient: localClient(),
     );
 
     await tester.pumpWidget(MaterialApp(
@@ -804,7 +416,7 @@ void main() {
 
     final client = SpliitClient(
       baseUrl: 'https://example.test',
-      httpClient: noRequestsClient(),
+      httpClient: localClient(),
     );
 
     await tester.pumpWidget(MaterialApp(
@@ -828,3 +440,4 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 }
+

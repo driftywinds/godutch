@@ -141,38 +141,50 @@ class Outbox {
         // whether it's retried automatically on the *next* flush
         // depends on what went wrong (issue #44):
         //
-        // - A 4xx [SpliitApiException] means the server is actively
-        //   rejecting this specific request (bad data, a participant
-        //   that no longer exists, ...) -- retrying the exact same
-        //   payload unchanged would never succeed, so give up on the
-        //   first failure rather than pointlessly hammering the server
-        //   with the same rejected request on every future flush.
-        // - Anything else (still offline, a 5xx, a transient network
-        //   error) is presumed retriable, but only up to [maxRetries]
-        //   attempts -- past that, something's persistently wrong and
-        //   it needs a person's attention rather than silently retrying
-        //   forever in the background.
+        // - A 4xx [SpliitApiException] usually means the server is actively
+        //   rejecting this specific request (bad data, a participant that
+        //   no longer exists, ...) -- retrying the exact same payload
+        //   unchanged would never succeed, so give up on the first failure
+        //   rather than pointlessly hammering the server. The exceptions
+        //   are the ones that pass by themselves (see [_rejected]).
+        // - Anything else (still offline, a 5xx, a 401 waiting for a
+        //   sign-in, a transient network error) is presumed retriable, but
+        //   only up to [maxRetries] attempts -- past that, something's
+        //   persistently wrong and it needs a person's attention rather
+        //   than silently retrying forever in the background.
         //
         // Either way the row is marked syncFailed and stops being
         // picked up by pendingExpensesForGroup; the UI offers a
         // retry/delete affordance instead (see GroupScreen's expense
         // list).
-        final isClientError = e is SpliitApiException && e.statusCode >= 400 && e.statusCode < 500;
-        // A receipt the server didn't take, for any reason but the
-        // connection, won't go up by itself either (#124). The expense's
-        // details offer Retry, Sync without receipts, or Discard.
-        final receiptRefused = uploading && classifyError(e) != ErrorKind.connection;
+        // A 4xx that says the request itself is wrong means retrying the
+        // same payload can't help. But not every 4xx does: 401 waits for a
+        // sign-in, 403 is a permission the user may be granted, and 408/429
+        // are timeouts and rate limits that pass. Those stay retriable.
+        final rejected = _rejected(e);
+        // A receipt the server actively refused, for a reason retrying won't
+        // fix. A 5xx or a dropped connection during the upload is transient.
+        final receiptRefused = uploading && rejected;
         // Offline isn't an attempt (#309): see [maxRetries].
         final retryCount = classifyError(e) == ErrorKind.connection ? row.retryCount : row.retryCount + 1;
         await _db.recordSyncFailure(
           id: row.id,
           error: e.toString(),
           retryCount: retryCount,
-          failed: isClientError || receiptRefused || retryCount >= maxRetries,
+          failed: rejected || receiptRefused || retryCount >= maxRetries,
         );
       }
     }
     return synced;
+  }
+
+  /// Whether [error] is a definitive rejection of the request itself, as
+  /// opposed to a failure that may pass on its own.
+  static bool _rejected(Object error) {
+    if (error is! SpliitApiException) return false;
+    final status = error.statusCode;
+    if (status < 400 || status >= 500) return false;
+    return status != 401 && status != 408 && status != 429;
   }
 
   /// Gets a photo into the bucket (#124) and returns it as the document

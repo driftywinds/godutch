@@ -63,6 +63,7 @@ class GroupListScreen extends StatefulWidget {
     this.onSignOut,
     this.settings,
     this.clientFactory,
+    this.openLastOnStart = false,
   });
 
   final AppDatabase db;
@@ -75,6 +76,11 @@ class GroupListScreen extends StatefulWidget {
   /// Legacy test hook: lets a widget test inject a MockClient-backed
   /// client when it doesn't have a real [CloudAccount].
   final SpliitClient Function(String baseUrl)? clientFactory;
+
+  /// Whether a launch reopens the group the app was last left in (#316).
+  /// On for the app's own root; off for screens tests mount directly, which
+  /// want the list itself.
+  final bool openLastOnStart;
 
   @override
   State<GroupListScreen> createState() => _GroupListScreenState();
@@ -90,6 +96,7 @@ class _GroupListScreenState extends State<GroupListScreen> with RouteAware {
   Map<String, DateSpan?> _dateSpans = {};
   String? _syncError;
   bool _syncing = false;
+  bool _reopenTried = false;
 
   /// The cloud client, or a stand-in for the widget tests that construct
   /// this screen without an account (they only exercise the local cache).
@@ -128,13 +135,32 @@ class _GroupListScreenState extends State<GroupListScreen> with RouteAware {
     );
   }
 
-  bool get _syncEnabled => widget.client != null;
+  // Only a signed-in screen syncs: a client without an account (tests, a
+  // half-signed-out state) has nothing to read from Cloud, but can still
+  // carry a group action to the server.
+  bool get _syncEnabled => widget.client != null && widget.account != null;
 
   @override
   void initState() {
     super.initState();
     _load();
     if (_syncEnabled) unawaited(_sync());
+    if (widget.openLastOnStart) unawaited(_openLastOnStart());
+  }
+
+  /// Reopens the group the app was last left in (#316), unless the user
+  /// went back to the list last time.
+  Future<void> _openLastOnStart() async {
+    if (_reopenTried) return;
+    _reopenTried = true;
+    try {
+      if (!await _settings.reopenLastGroup()) return;
+      final row = await widget.db.mostRecentlyOpenedGroup();
+      if (!mounted || row == null) return;
+      await _openGroup(row);
+    } catch (e, st) {
+      ErrorReporter.instance.report(e, st, operation: 'Reopening the last group');
+    }
   }
 
   @override
@@ -169,19 +195,38 @@ class _GroupListScreenState extends State<GroupListScreen> with RouteAware {
   Future<void> _load() async {
     if (!mounted) return;
     final version = ++_loadVersion;
-    final sort = groupListSortFromTag(await _settings.groupListSort());
-    final rows = await widget.db.allJoinedGroups();
-    final spans = <String, DateSpan?>{};
-    for (final row in rows) {
-      spans[row.id] = computeDateSpan(await widget.db.expensesForGroup(row.id));
+    try {
+      final sort = groupListSortFromTag(await _settings.groupListSort());
+      final rows = await widget.db.allJoinedGroups();
+      // One query for every group's first/last date instead of reading each
+      // group's whole history.
+      final byGroup = await widget.db.groupExpenseSpans();
+      final spans = <String, DateSpan?>{
+        for (final row in rows)
+          row.id: switch (byGroup[row.id]) {
+            final span? => DateSpan(first: span.first, last: span.last),
+            null => null,
+          },
+      };
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _sort = sort;
+        _groups = rows;
+        _dateSpans = spans;
+        _loading = false;
+      });
+    } catch (e, st) {
+      // A database failure (a corrupt cache, a failed migration) used to
+      // leave the screen on its spinner forever.
+      final error = ErrorReporter.instance.report(e, st, operation: 'Reading the group list');
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _loading = false;
+        _syncError = errorMessageFor(context, error,
+            unexpected: context.l10n.groupListSyncFailed,
+            userMessage: (_) => null);
+      });
     }
-    if (!mounted || version != _loadVersion) return;
-    setState(() {
-      _sort = sort;
-      _groups = rows;
-      _dateSpans = spans;
-      _loading = false;
-    });
   }
 
   /// Pulls the account's groups from Cloud, caches the summaries, applies

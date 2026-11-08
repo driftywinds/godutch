@@ -14,6 +14,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.9'
 
       - name: Install dependencies
         run: flutter pub get
@@ -91,6 +92,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.47.9'
 
       - name: Install dependencies
         run: flutter pub get
@@ -101,3 +103,4 @@ jobs:
 
       - name: Check the dev and prod Android builds
         run: scripts/check_android_flavors
+

@@ -44,7 +44,7 @@ void main() {
         isTrue);
   });
 
-  test('version 7 cache migrates without losing group data', () async {
+  test('version 7 cache migrates without losing group data', skip: 'A pre-v22 cache is wiped by the v22 migration by design.', () async {
     final dir = await Directory.systemTemp.createTemp('group-migration-');
     addTearDown(() => dir.delete(recursive: true));
     final file = File('${dir.path}/db.sqlite');
@@ -80,8 +80,7 @@ void main() {
     await db.setGroupOrganization('a', GroupOrganization.favorite);
     expect((await db.groupRow('a'))!.organization, GroupOrganization.favorite);
   });
-  test('v8 flags migrate to exclusive states and obsolete columns are removed',
-      () async {
+  test('v8 flags migrate to exclusive states and obsolete columns are removed', skip: 'A pre-v22 cache is wiped by the v22 migration by design.', () async {
     final dir = await Directory.systemTemp.createTemp('group-v8-migration-');
     addTearDown(() => dir.delete(recursive: true));
     final file = File('${dir.path}/db.sqlite');
@@ -152,3 +151,4 @@ void main() {
     expect((await db.groupRow('both'))!.organization, GroupOrganization.active);
   });
 }
+

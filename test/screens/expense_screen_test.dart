@@ -334,16 +334,13 @@ void main() {
       '{"id":8,"name":"Dining Out","grouping":"Food and Drink"},'
       '{"id":20,"name":"Gas/Fuel","grouping":"Transportation"}]}}}}]';
 
-  testWidgets('loads categories from the server and selecting one updates the field',
+  testWidgets('the Cloud category catalogue is in the picker, and selecting one updates the field',
       (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final client = SpliitClient(
       baseUrl: 'https://example.test',
-      httpClient: MockClient((req) async {
-        expect(req.url.toString(), contains('categories.list'));
-        return http.Response(categoriesResponseBody(), 200);
-      }),
+      httpClient: MockClient((req) async => throw http.ClientException('offline')),
     );
     final outbox = Outbox(db, client, groupId: 'g1');
 
@@ -355,14 +352,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // Categories loaded successfully (would still show just 'General' if
-    // the fetch had failed) -- open the picker, confirm it's there, and
-    // pick a category. Checking the field's displayed value directly
-    // (rather than saving and reading the persisted expense back)
-    // sidesteps needing a full save-flow round trip through a form this
-    // test isn't otherwise exercising.
     await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
     await tester.tap(find.widgetWithText(GroupedRow, 'General'));
+    await tester.pumpAndSettle();
+    // The Cloud catalogue is long: narrow it to the one being picked.
+    await tester.enterText(find.widgetWithText(TextField, 'Search categories'), 'gro');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Groceries'));
     await tester.pumpAndSettle();
@@ -388,21 +382,18 @@ void main() {
     expect(find.widgetWithText(GroupedRow, 'Groceries'), findsOneWidget);
   });
 
-  testWidgets('offline, the picker has the server\'s list as last read', (tester) async {
+  testWidgets('offline, the picker has the whole Cloud catalogue', (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    await tester.runAsync(() => db.replaceCategories('https://example.test', const [
-          Category(id: 0, name: 'General', grouping: 'Uncategorized'),
-          Category(id: 44, name: 'Hobbies', grouping: 'Life'),
-        ]));
     await pumpScreen(tester, db);
 
     await tester.ensureVisible(find.widgetWithText(GroupedRow, 'General'));
     await tester.tap(find.widgetWithText(GroupedRow, 'General'));
     await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search categories'), 'gro');
+    await tester.pumpAndSettle();
 
-    expect(find.text('Hobbies'), findsOneWidget);
-    expect(find.text('Groceries'), findsNothing);
+    expect(find.text('Groceries'), findsOneWidget);
   });
 
   testWidgets('category picker groups categories under their grouping header', (tester) async {
@@ -410,7 +401,7 @@ void main() {
       addTearDown(db.close);
       final client = SpliitClient(
         baseUrl: 'https://example.test',
-        httpClient: MockClient((req) async => http.Response(categoriesResponseBody(), 200)),
+        httpClient: MockClient((req) async => throw http.ClientException('offline')),
       );
       final outbox = Outbox(db, client, groupId: 'g1');
 
@@ -426,13 +417,17 @@ void main() {
       await tester.tap(find.widgetWithText(GroupedRow, 'General'));
       await tester.pumpAndSettle();
 
-      // Grouping headers are shown, and "Groceries"/"Dining Out" both
-      // appear once each under "Food and Drink" -- not flattened into
-      // one long undifferentiated list.
+      // Grouping headers are shown, and a category sits under its own --
+      // not flattened into one long undifferentiated list.
+      final search = find.widgetWithText(TextField, 'Search categories');
+      await tester.enterText(search, 'gro');
+      await tester.pumpAndSettle();
       expect(find.text('Food and Drink'), findsOneWidget);
-      expect(find.text('Transportation'), findsOneWidget);
       expect(find.text('Groceries'), findsOneWidget);
-      expect(find.text('Dining Out'), findsOneWidget);
+
+      await tester.enterText(search, 'fuel');
+      await tester.pumpAndSettle();
+      expect(find.text('Transportation'), findsOneWidget);
       expect(find.text('Gas/Fuel'), findsOneWidget);
     });
 
@@ -953,7 +948,7 @@ void main() {
       rates: (db) => rates = _FakeRates(db),
       server: MockClient((req) async {
         if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
-        sent = (jsonDecode(req.body) as Map)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+        sent = (jsonDecode(req.body) as Map)['0']['json']['expense'] as Map<String, dynamic>;
         return http.Response('[{"result":{"data":{"json":{"expenseId":"e2"}}}}]', 200);
       }),
       editing: Expense(
@@ -976,8 +971,14 @@ void main() {
         findsOneWidget);
     expect(find.text('Use the published rate'), findsOneWidget);
     await tapSave(tester);
-    expect((sent!['conversionRate'], sent!['amount'], sent!['originalAmount'], sent!['originalCurrency']),
-        (0.00609756097560976, 610, 1000, 'JPY'));
+    // Cloud takes the paid-in amount and the conversion; it works the
+    // group total out itself.
+    expect(sent!['amount'], 1000);
+    expect(sent!['conversion'], {
+      'type': 'custom',
+      'currency': 'JPY',
+      'rate': 0.00609756097560976,
+    });
   });
 
   testWidgets('a saved rate shows the euro first and is sent back as stored (#261, acceptance case 3)',
@@ -988,7 +989,7 @@ void main() {
       euroGroup,
       server: MockClient((req) async {
         if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
-        sent = (jsonDecode(req.body) as Map)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+        sent = (jsonDecode(req.body) as Map)['0']['json']['expense'] as Map<String, dynamic>;
         return http.Response('[{"result":{"data":{"json":{"expenseId":"e5"}}}}]', 200);
       }),
       editing: Expense(
@@ -1007,7 +1008,7 @@ void main() {
     expect((find.text('EUR/JPY').evaluate().length, rateText(tester)), (1, '176.991'));
     await tester.enterText(find.widgetWithText(TextFormField, 'Ramen'), 'Ramen and gyoza');
     await tapSave(tester);
-    expect((sent!['conversionRate'], sent!['amount']), (0.00565, 565));
+    expect((sent!['amount'], (sent!['conversion'] as Map)['rate']), (1000, 0.00565));
   });
 
   testWidgets('a screen reader names the rate field by its pair, not by its number (#288)', (tester) async {
@@ -1064,7 +1065,7 @@ void main() {
       euroGroup,
       server: MockClient((req) async {
         if (!req.url.path.endsWith('groups.expenses.update')) throw http.ClientException('offline');
-        sent = (jsonDecode(req.body) as Map)['0']['json']['expenseFormValues'] as Map<String, dynamic>;
+        sent = (jsonDecode(req.body) as Map)['0']['json']['expense'] as Map<String, dynamic>;
         return http.Response('[{"result":{"data":{"json":{"expenseId":"e3"}}}}]', 200);
       }),
       // spliit-web lets the total differ from 1000 × 0.0061 = 610.
@@ -1097,7 +1098,7 @@ void main() {
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Ramen'), 'Ramen and gyoza');
     await tapSave(tester);
-    expect((sent!['amount'], sent!['originalAmount'], sent!['conversionRate']), (615, 1000, 0.0061));
+    expect((sent!['amount'], (sent!['conversion'] as Map)['rate']), (1000, 0.0061));
   });
 
   testWidgets('a rate typed while the published one is on its way is kept (#255 review)',
@@ -1792,3 +1793,4 @@ class _SlowRateBase extends SettingsService {
   @override
   Future<void> setRateBase(String a, String b, String first) async => saved = first;
 }
+

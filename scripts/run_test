@@ -74,12 +74,12 @@ run_bounded 30 flutter gen-l10n
 gen_l10n_status=$?
 echo "--- flutter gen-l10n exit: $gen_l10n_status ---"
 echo "--- flutter analyze ---"
-run_bounded 30 flutter analyze
+run_bounded 180 flutter analyze
 analyze_status=$?
 echo "--- flutter analyze exit: $analyze_status ---"
 echo "--- flutter test --coverage ---"
-# 120s: the suite takes about 80s on a loaded machine (#135).
-run_bounded 120 flutter test --coverage
+# 600s: the suite is several minutes on a loaded machine.
+run_bounded 600 flutter test --coverage
 test_status=$?
 echo "--- flutter test exit: $test_status ---"
 if command -v lcov >/dev/null 2>&1 && [ -f coverage/lcov.info ]; then

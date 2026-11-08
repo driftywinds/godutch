@@ -3,103 +3,91 @@ import 'dart:convert';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:godutch/widgets/grouped_section.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:godutch/api/spliit_client.dart';
 import 'package:godutch/db/app_database.dart';
 import 'package:godutch/l10n/app_localizations.dart';
-import 'package:godutch/models/group.dart';
+import 'package:godutch/models/currency.dart';
 import 'package:godutch/screens/group_settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/error_log.dart';
 
-// Issue #115: the group settings form, in create mode.
-void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
-
-  String createdResponse(String id) => jsonEncode([
-        {
-          'result': {
-            'data': {
-              'json': {'groupId': id},
-            },
-          },
-        },
-      ]);
-
-  String groupResponse(String id, List<String> names) => jsonEncode([
-        {
-          'result': {
-            'data': {
-              'json': {
-                'group': {
-                  'id': id,
-                  'name': 'Road trip',
-                  'currency': '\$',
-                  'currencyCode': 'USD',
-                  'participants': [
-                    for (var i = 0; i < names.length; i++) {'id': 'p$i', 'name': names[i]},
-                  ],
-                },
+String _groupJson({String name = 'Trip'}) => jsonEncode([
+      {
+        'result': {
+          'data': {
+            'json': {
+              'group': {
+                'id': 'g1',
+                'name': name,
+                'currency': r'$',
+                'currencyCode': 'USD',
+                'ledgerId': 'ledger-1',
+                'groupType': 'GROUP',
+                'participants': [
+                  {'id': 'p1', 'name': 'Me'},
+                ],
+                'members': [],
               },
             },
           },
         },
-      ]);
+      },
+    ]);
 
-  /// A server that creates [id] and returns it with the names it was sent.
-  /// Records every request and the server each client was built for.
-  ({List<http.Request> requests, List<String> servers, SpliitClient Function(String) factory})
-      fakeServer({String id = 'new1', bool fail = false}) {
-    final requests = <http.Request>[];
-    final servers = <String>[];
-    List<String> names = const [];
-    SpliitClient factory(String serverUrl) {
-      servers.add(serverUrl);
-      return SpliitClient(
-        baseUrl: serverUrl,
-        httpClient: MockClient((req) async {
-          requests.add(req);
-          if (fail) return http.Response('boom', 500);
-          if (req.url.path.endsWith('groups.create')) {
-            final json = (jsonDecode(req.body)['0'] as Map)['json'] as Map;
-            names = [
-              for (final p in json['groupFormValues']['participants'] as List) p['name'] as String,
-            ];
-            return http.Response(createdResponse(id), 200);
-          }
-          if (req.url.path.endsWith('groups.get')) {
-            return http.Response(groupResponse(id, names), 200);
-          }
-          return http.Response('unexpected', 500);
-        }),
-      );
-    }
+void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    return (requests: requests, servers: servers, factory: factory);
+  Future<AppDatabase> openDb() async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    return db;
   }
 
-  Map<String, dynamic> sentForm(http.Request req) =>
-      ((jsonDecode(req.body)['0'] as Map)['json'] as Map)['groupFormValues']
-          as Map<String, dynamic>;
+  /// A Cloud whose create/read answers are controlled per request.
+  ({SpliitClient client, List<http.Request> requests}) server({
+    Future<http.Response> Function()? create,
+    Future<http.Response> Function()? get,
+  }) {
+    final requests = <http.Request>[];
+    final client = SpliitClient(
+      baseUrl: 'https://api.spliit.test',
+      httpClient: MockClient((req) async {
+        requests.add(req);
+        if (req.url.path.endsWith('groups.create')) {
+          if (create != null) return create();
+          return http.Response(
+              '[{"result":{"data":{"json":{"groupId":"g1"}}}}]', 200);
+        }
+        if (req.url.path.endsWith('groups.get')) {
+          if (get != null) return get();
+          return http.Response(_groupJson(), 200);
+        }
+        return http.Response('unexpected', 500);
+      }),
+    );
+    return (client: client, requests: requests);
+  }
 
-  /// Pushes the create screen from a stub home, so its pop can be seen.
-  Future<List<String?>> openCreate(WidgetTester tester, AppDatabase db,
-      SpliitClient Function(String) factory,
-      {Locale locale = const Locale('en')}) async {
-    final popped = <String?>[];
+  Future<String?> openAndCreate(
+    WidgetTester tester,
+    AppDatabase db,
+    SpliitClient client, {
+    String name = 'Trip',
+  }) async {
+    String? popped;
     await tester.pumpWidget(MaterialApp(
-      locale: locale,
+      locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
-        builder: (context) => TextButton(
+        builder: (context) => ElevatedButton(
           onPressed: () async {
-            popped.add(await Navigator.of(context).push<String>(MaterialPageRoute(
-              builder: (_) => GroupSettingsScreen.create(db: db, clientFactory: factory),
-            )));
+            popped = await Navigator.of(context).push<String>(MaterialPageRoute(
+              builder: (_) => GroupSettingsScreen.create(db: db, client: client),
+            ));
           },
           child: const Text('open'),
         ),
@@ -107,207 +95,117 @@ void main() {
     ));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    if (name.isNotEmpty) {
+      await tester.enterText(find.widgetWithText(TextField, 'Group name'), name);
+    }
+    await tester.tap(find.byTooltip('Create'));
+    await tester.pumpAndSettle();
     return popped;
   }
 
-  Future<void> tapCreate(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Create'));
+  testWidgets('opens as Create group, in the region\'s currency', (tester) async {
+    final db = await openDb();
+    final s = server();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en', 'US'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: GroupSettingsScreen.create(db: db, client: s.client),
+    ));
     await tester.pumpAndSettle();
-  }
-
-  Future<void> enterName(WidgetTester tester, String name) async {
-    await tester.enterText(find.widgetWithText(TextField, 'Group name'), name);
-  }
-
-  testWidgets('opens as "Create group" with the sample participants, the region\'s currency, '
-      'spliit.app, and no date span', (tester) async {
-    tester.platformDispatcher.localeTestValue = const Locale('fr', 'FR');
-    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    await openCreate(tester, db, fakeServer().factory);
 
     expect(find.text('Create group'), findsOneWidget);
-    for (final name in ['John', 'Jane', 'Jack']) {
-      expect(find.widgetWithText(TextField, name), findsOneWidget);
-    }
-    // The phone's region (France), not the app language, picks the currency.
-    expect(find.textContaining('EUR'), findsOneWidget);
-    expect(find.text('spliit.app'), findsOneWidget);
-    expect(find.text('Date span'), findsNothing);
+    expect(find.byTooltip('Create'), findsOneWidget);
+    final usd = defaultCurrencyFor(const Locale('en', 'US'));
+    expect(find.textContaining(usd.code), findsWidgets);
+    expect(s.requests, isEmpty);
   });
 
-  testWidgets('French sample names, as spliit-web uses', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    await openCreate(tester, db, fakeServer().factory, locale: const Locale('fr'));
-
-    for (final name in ['Jean', 'Jeanne', 'Jacques']) {
-      expect(find.widgetWithText(TextField, name), findsOneWidget);
-    }
+  testWidgets('a blank name is refused before any request', (tester) async {
+    final db = await openDb();
+    final s = server();
+    await openAndCreate(tester, db, s.client, name: '');
+    expect(find.text('Group name is required.'), findsOneWidget);
+    expect(s.requests.where((r) => r.url.path.endsWith('groups.create')), isEmpty);
   });
 
-  testWidgets('creates on spliit.app, stores the group as joined with no expenses, and pops its id',
-      (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    final server = fakeServer(id: 'new1');
-    final popped = await openCreate(tester, db, server.factory);
+  testWidgets('creates the group, caches it, and pops its id', (tester) async {
+    final db = await openDb();
+    final s = server();
+    final popped = await openAndCreate(tester, db, s.client);
 
-    await enterName(tester, 'Road trip');
-    await tapCreate(tester);
+    expect(popped, 'g1');
+    final create = s.requests.firstWhere((r) => r.url.path.endsWith('groups.create'));
+    final sent = (jsonDecode(create.body)['0']['json']) as Map<String, dynamic>;
+    final values = sent['groupFormValues'] as Map<String, dynamic>;
+    expect(values['name'], 'Trip');
+    expect(values['currencyCode'], 'USD');
+    expect((values['participants'] as List).single, {'name': 'Me'});
 
-    expect(popped, ['new1']);
-    expect(server.servers, ['https://spliit.app']);
-    final create = server.requests.firstWhere((r) => r.url.path.endsWith('groups.create'));
-    expect(sentForm(create)['name'], 'Road trip');
-    expect(sentForm(create)['participants'], [
-      {'name': 'John'},
-      {'name': 'Jane'},
-      {'name': 'Jack'},
-    ]);
-
-    final row = (await tester.runAsync(() => db.groupRow('new1')))!;
-    expect(row.serverUrl, 'https://spliit.app');
-    expect(row.lastOpenedAt, isNotNull); // in the group list
-    expect(await tester.runAsync(() => db.expensesForGroup('new1')), isEmpty);
-  });
-
-  testWidgets('offers the servers this device already uses, most recent first', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    for (final (id, server, day) in [
-      ('a', 'https://spliit.app', 1),
-      ('b', 'https://spliit.example.com', 2),
-    ]) {
-      await db.cacheGroup(Group(id: id, name: id, currency: '\$', participants: const []));
-      await db.recordGroupOpened(id, serverUrl: server, at: DateTime(2026, 9, day));
-    }
-    final server = fakeServer();
-    await openCreate(tester, db, server.factory);
-
-    // The most recently opened group's server is the default.
-    expect(find.text('spliit.example.com'), findsOneWidget);
-    await enterName(tester, 'Road trip');
-    await tapCreate(tester);
-
-    expect(server.servers, ['https://spliit.example.com']);
-  });
-
-  testWidgets('"Other server" takes a typed address, and refuses one that isn\'t', (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    final server = fakeServer();
-    final popped = await openCreate(tester, db, server.factory);
-
-    await enterName(tester, 'Road trip');
-    await tester.tap(find.text('spliit.app'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Other server').last);
-    await tester.pumpAndSettle();
-
-    // Its line ends where the fields do, not a second inset short (#214
-    // review).
-    final address = find.widgetWithText(TextField, 'Server address');
-    final line = find.descendant(
-        of: find.ancestor(of: address, matching: find.byType(Column)).first,
-        matching: find.byType(GroupedDivider));
-    final lineEnd = tester.getRect(line).right - tester.widget<Divider>(
-        find.descendant(of: line, matching: find.byType(Divider))).endIndent!;
-    expect(lineEnd, tester.getRect(address).right);
-
-    await tester.enterText(find.widgetWithText(TextField, 'Server address'), 'not a server');
-    await tapCreate(tester);
-    expect(find.textContaining('doesn’t look like a web address'), findsOneWidget);
-    expect(server.requests, isEmpty);
-
-    await tester.enterText(find.widgetWithText(TextField, 'Server address'), 'my.spliit.test/');
-    await tapCreate(tester);
-    expect(server.servers, ['https://my.spliit.test']);
-    expect(popped, ['new1']);
-  });
-
-  testWidgets('checks the server\'s name rules before sending anything', (tester) async {
-    // Tall enough that every participant row stays built under the error.
-    tester.view.physicalSize = const Size(800, 2000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    final server = fakeServer();
-    await openCreate(tester, db, server.factory);
-
-    await enterName(tester, 'R');
-    await tapCreate(tester);
-    expect(find.text('The group name must be 2 to 50 characters.'), findsOneWidget);
-
-    await enterName(tester, 'Road trip');
-    await tester.enterText(find.widgetWithText(TextField, 'Jack'), 'John');
-    await tapCreate(tester);
-    expect(find.text('Two participants are named “John”. Each needs a different name.'),
-        findsOneWidget);
-
-    await tester.enterText(find.widgetWithText(TextField, 'John').last, 'J');
-    await tapCreate(tester);
-    expect(find.text('Participant names must be 2 to 50 characters.'), findsOneWidget);
-    expect(server.requests, isEmpty);
+    final cached = await db.cachedGroup('g1');
+    expect(cached?.name, 'Trip');
+    expect((await db.groupRow('g1'))?.lastOpenedAt, isNotNull);
+    expect((await db.groupRow('g1'))?.serverUrl, 'https://api.spliit.test');
   });
 
   testWidgets('a server failure stays on the form with the error', (tester) async {
-    expectUnexpectedError<SpliitApiException>('Creating a group on https://spliit.app');
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    final popped = await openCreate(tester, db, fakeServer(fail: true).factory);
+    final db = await openDb();
+    expectUnexpectedError<SpliitApiException>('Saving group settings');
+    final s = server(create: () async => http.Response('boom', 500));
+    final popped = await openAndCreate(tester, db, s.client);
 
-    await enterName(tester, 'Road trip');
-    await tapCreate(tester);
-
-    expect(popped, isEmpty);
-    expect(find.textContaining('Couldn’t create the group'), findsOneWidget);
-    expect(await tester.runAsync(() => db.allJoinedGroups()), isEmpty);
+    expect(popped, isNull);
+    expect(find.text("Couldn't save the group settings."), findsOneWidget);
+    expect(find.byType(GroupSettingsScreen), findsOneWidget);
+    expect(await db.cachedGroup('g1'), isNull);
   });
 
-  // #116 review (Ezra): once groups.create succeeds the group exists, so a
-  // failed load afterwards must not lead to a second create on retry.
-  testWidgets('a failed load after a successful create retries the load, never a second create',
+  testWidgets('a failed read after creating retries the read, never a second create',
       (tester) async {
-    final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    var creates = 0;
+    final db = await openDb();
+    expectUnexpectedError<SpliitApiException>('Saving group settings');
     var gets = 0;
-    SpliitClient factory(String serverUrl) => SpliitClient(
-          baseUrl: serverUrl,
-          httpClient: MockClient((req) async {
-            if (req.url.path.endsWith('groups.create')) {
-              creates++;
-              return http.Response(createdResponse('new1'), 200);
-            }
-            if (req.url.path.endsWith('groups.get')) {
-              gets++;
-              if (gets == 1) return http.Response('unavailable', 503);
-              return http.Response(groupResponse('new1', ['John', 'Jane', 'Jack']), 200);
-            }
-            return http.Response('unexpected', 500);
-          }),
-        );
-    final popped = await openCreate(tester, db, factory);
+    var failGet = true;
+    final s = server(get: () async {
+      gets++;
+      if (failGet) return http.Response('boom', 500);
+      return http.Response(_groupJson(), 200);
+    });
 
-    await enterName(tester, 'Road trip');
-    await tapCreate(tester);
+    String? popped;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () async {
+            popped = await Navigator.of(context).push<String>(MaterialPageRoute(
+              builder: (_) => GroupSettingsScreen.create(db: db, client: s.client),
+            ));
+          },
+          child: const Text('open'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Group name'), 'Trip');
+    await tester.tap(find.byTooltip('Create'));
+    await tester.pumpAndSettle();
 
-    expect(creates, 1);
-    expect(popped, isEmpty);
-    // Says the group exists, and gives its link so it isn't lost if the
-    // user leaves now.
-    expect(find.textContaining('was created but couldn’t be loaded'), findsOneWidget);
-    expect(find.textContaining('https://spliit.app/groups/new1'), findsOneWidget);
+    expect(popped, isNull);
+    expect(find.text("Couldn't save the group settings."), findsOneWidget);
+    expect(gets, 1);
 
-    await tapCreate(tester);
+    failGet = false;
+    await tester.tap(find.byTooltip('Create'));
+    await tester.pumpAndSettle();
 
-    expect(creates, 1);
+    expect(popped, 'g1');
     expect(gets, 2);
-    expect(popped, ['new1']);
-    expect((await tester.runAsync(() => db.groupRow('new1')))?.serverUrl, 'https://spliit.app');
+    // Created once, read twice.
+    expect(s.requests.where((r) => r.url.path.endsWith('groups.create')), hasLength(1));
+    expect(await db.cachedGroup('g1'), isNotNull);
   });
 }
-

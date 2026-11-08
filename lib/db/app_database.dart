@@ -7,6 +7,7 @@ import '../models/default_split.dart';
 import '../models/expense.dart';
 import '../models/group.dart';
 import '../models/group_organization.dart';
+import '../services/date_only.dart';
 
 part 'app_database.g.dart';
 
@@ -426,11 +427,30 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
+
+  /// Indexes for the queries the app makes on every screen (a group's
+  /// expenses, an expense's documents and attachments). Drift doesn't
+  /// declare them, so they're created here, for fresh databases and
+  /// upgrades alike.
+  static Future<void> _createIndexes(AppDatabase db) async {
+    for (final statement in const [
+      'CREATE INDEX IF NOT EXISTS expenses_group_date ON expenses(group_id, date)',
+      'CREATE INDEX IF NOT EXISTS expense_documents_group ON expense_documents(group_id)',
+      'CREATE INDEX IF NOT EXISTS expense_documents_expense ON expense_documents(expense_id)',
+      'CREATE INDEX IF NOT EXISTS receipt_files_group ON receipt_files(group_id)',
+      'CREATE INDEX IF NOT EXISTS receipt_attachments_expense ON receipt_attachments(expense_id)',
+    ]) {
+      await db.customStatement(statement);
+    }
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
+        onCreate: (m) async {
+          await m.createAll();
+          await _createIndexes(this);
+        },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             // Groups table gained participantsJson (see class doc) --
@@ -647,6 +667,24 @@ class AppDatabase extends _$AppDatabase {
               await m.addColumn(expenses, expenses.itemizedRemainderJson);
             }
           }
+          if (from < 24) {
+            // Expense dates are calendar dates, not instants: keep them at
+            // midnight UTC so they read as the same day in another timezone.
+            // Existing rows hold a local-midnight instant; relabel that
+            // instant's day, which preserves what the device showed. A row
+            // queued or cached in another zone can't be recovered exactly,
+            // but it keeps the day it currently reads as.
+            final rows = await customSelect('SELECT id, date FROM expenses').get();
+            for (final row in rows) {
+              final day = dateOnlyForStorage(row.read<DateTime>('date'));
+              await customUpdate(
+                'UPDATE expenses SET date = ? WHERE id = ?',
+                variables: [Variable<DateTime>(day), Variable<String>(row.read<String>('id'))],
+                updates: {expenses},
+              );
+            }
+            await _createIndexes(this);
+          }
         },
       );
 
@@ -845,6 +883,9 @@ class AppDatabase extends _$AppDatabase {
         ),
       );
       if (row == null) return;
+      // A list fetched before this create committed must not write its
+      // now-stale copy after it (the same guard edits and deletes use).
+      markExpensesChanged(row.groupId);
       await _captured(row.groupId, sent);
       if (moveDocs) await cacheExpenseDocuments(row.groupId, serverId, docs);
     });
@@ -1083,6 +1124,26 @@ class AppDatabase extends _$AppDatabase {
             }))
           .write(const ExpensesCompanion(detailsFetchedAt: Value(null)));
 
+  /// First and last expense date per group, in one query: what the group
+  /// list shows under each name (#55). Reading every group's whole expense
+  /// list to find two values made the list scale with total history.
+  Future<Map<String, ({DateTime first, DateTime last})>> groupExpenseSpans() async {
+    final first = expenses.date.min();
+    final last = expenses.date.max();
+    final query = selectOnly(expenses)
+      ..addColumns([expenses.groupId, first, last])
+      ..groupBy([expenses.groupId]);
+    final rows = await query.get();
+    return {
+      for (final row in rows)
+        if ((row.read(first), row.read(last)) case (final a?, final b?))
+          row.read(expenses.groupId)!: (
+            first: dateOnlyFromStorage(a),
+            last: dateOnlyFromStorage(b),
+          ),
+    };
+  }
+
   /// [groupId]'s synced expenses whose details aren't known (#237),
   /// newest first.
   Future<List<String>> expensesWithUnknownDetails(String groupId) async {
@@ -1099,8 +1160,18 @@ class AppDatabase extends _$AppDatabase {
   /// list counts only while the two match. Only on a synced row; a
   /// pending one keeps its own. The next refresh clears them again, as
   /// the list doesn't send them, unless [keepsExpenseDetails].
-  Future<void> cacheExpenseDetails(String groupId, Expense fresh, {DateTime? at}) {
+  ///
+  /// [fetchedAtGeneration] is [groupId]'s [expensesGeneration] from before
+  /// the full read started. If this device edited or deleted an expense
+  /// meanwhile, the read may predate that change and is dropped, like a
+  /// stale list snapshot.
+  Future<void> cacheExpenseDetails(String groupId, Expense fresh,
+      {DateTime? at, int? fetchedAtGeneration}) {
     return transaction(() async {
+      if (fetchedAtGeneration != null &&
+          fetchedAtGeneration != expensesGeneration(groupId)) {
+        return;
+      }
       final updated = await (update(expenses)
             ..where((e) => e.id.equals(fresh.id) & e.pending.equals(false)))
           .write(ExpensesCompanion(
@@ -1111,6 +1182,18 @@ class AppDatabase extends _$AppDatabase {
       ));
       if (updated > 0) await cacheExpenseDocuments(groupId, fresh.id, fresh.documents);
     });
+  }
+
+  /// Writes a successful edit's own values back to the cached row, in one
+  /// step. The expense list doesn't carry notes or the rate, so waiting for
+  /// the next refresh would leave the old copy on screen -- and if that
+  /// refresh failed, the edit would look lost even though the server kept
+  /// it. Callers mark the group changed themselves (before this, so a
+  /// concurrent refresh is refused even if this write fails).
+  Future<void> cacheEditedExpense(Expense edited) {
+    return (update(expenses)
+          ..where((e) => e.id.equals(edited.id) & e.pending.equals(false)))
+      .write(toCompanion(edited));
   }
 
   /// Stores the documents an expense was just read with (#123), replacing
@@ -1333,9 +1416,9 @@ class AppDatabase extends _$AppDatabase {
         amountCents: e.amountCents,
         paidBy: e.paidBy,
         paidForJson: jsonEncode(e.paidFor.map((s) => s.toJson()).toList()),
-        splitMode: Value(e.splitMode.wireValue),
+        splitMode: Value(e.splitModeWireValue),
         categoryId: Value(e.categoryId),
-        paidBySplitMode: Value(e.paidBySplitMode.wireValue),
+        paidBySplitMode: Value(e.paidBySplitModeWireValue),
         paidByListJson: e.paidByList.isEmpty
             ? const Value.absent()
             : Value(jsonEncode(e.paidByList.map((s) => s.toJson()).toList())),
@@ -1353,7 +1436,7 @@ class AppDatabase extends _$AppDatabase {
             : Value(jsonEncode(e.itemizedRemainder!.toJson())),
         category: Value(e.category),
         notes: Value(e.notes),
-        date: e.date,
+        date: dateOnlyForStorage(e.date),
         isSettlement: Value(e.isSettlement),
         recurrenceRule: Value(e.recurrenceRule.wireValue),
         originalAmountCents: Value(e.originalAmountCents),
@@ -1633,6 +1716,8 @@ class AppDatabase extends _$AppDatabase {
             .map((s) => ExpenseShare.fromJson(s as Map<String, dynamic>))
             .toList(),
         splitMode: SplitModeWire.fromWire(row.splitMode),
+        splitModeTag: row.splitMode,
+        paidBySplitModeTag: row.paidBySplitMode,
         categoryId: row.categoryId,
         paidByList: [
           if (row.paidByListJson != null)
@@ -1657,7 +1742,7 @@ class AppDatabase extends _$AppDatabase {
                 jsonDecode(row.itemizedRemainderJson!) as Map<String, dynamic>),
         category: row.category,
         notes: row.notes,
-        date: row.date,
+        date: dateOnlyFromStorage(row.date),
         isSettlement: row.isSettlement,
         recurrenceRule: RecurrenceRuleWire.fromWire(row.recurrenceRule),
         originalAmountCents: row.originalAmountCents,

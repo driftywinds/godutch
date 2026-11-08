@@ -20,11 +20,20 @@ import '../models/expense.dart';
 /// remainder.
 ///
 /// Returns an empty map for an expense with no [Expense.paidFor] entries.
-Map<String, int> expenseShareCents(Expense e) => shareCentsFor(
-      amountCents: e.amountCents,
-      splitMode: e.splitMode,
-      paidFor: e.paidFor,
-    );
+///
+/// An itemized expense ([Expense.isItemized]) stores exact amounts, like
+/// [SplitMode.byAmount], so its shares are read as amounts rather than
+/// divided evenly.
+Map<String, int> expenseShareCents(Expense e) {
+  final input = e.isItemized
+      ? {for (final s in e.paidFor) s.participantId: s.shares}
+      : shareCentsFor(
+          amountCents: e.amountCents,
+          splitMode: e.splitMode,
+          paidFor: e.paidFor,
+        );
+  return _inGroupCurrency(e, input, e.isItemized ? SplitMode.byAmount : e.splitMode);
+}
 
 /// What each participant paid on [e]. Cloud can record several payers;
 /// their shares use [Expense.paidBySplitMode] with the same units as the
@@ -34,10 +43,35 @@ Map<String, int> expensePaidCents(Expense e) {
   if (e.paidByList.isEmpty) {
     return e.paidBy.isEmpty ? const {} : {e.paidBy: e.amountCents};
   }
+  final mode = e.paidBySplitModeTag == 'ITEMIZED' ? SplitMode.byAmount : e.paidBySplitMode;
+  final input = shareCentsFor(
+    amountCents: e.amountCents,
+    splitMode: mode,
+    paidFor: e.paidByList,
+  );
+  return _inGroupCurrency(e, input, mode);
+}
+
+/// [shares] as Cloud stores them for a converted expense, in the group's
+/// currency.
+///
+/// Cloud keeps a converted expense's amount and its amount-based shares in
+/// the currency it was entered in, and scales both by the stored amounts
+/// when working out balances (a `BY_AMOUNT` split's shares are input-currency
+/// cents; a percentage or shares split needs no scaling). This mirrors that,
+/// with the same largest-remainder distribution the rest of this file uses,
+/// so the app's balances agree with the server's for a web-created expense.
+Map<String, int> _inGroupCurrency(Expense e, Map<String, int> shares, SplitMode mode) {
+  if (mode != SplitMode.byAmount || shares.isEmpty) return shares;
+  final original = e.originalAmountCents;
+  if (original == null || original <= 0 || original == e.amountCents) return shares;
   return shareCentsFor(
     amountCents: e.amountCents,
-    splitMode: e.paidBySplitMode,
-    paidFor: e.paidByList,
+    splitMode: SplitMode.byShares,
+    paidFor: [
+      for (final MapEntry(:key, :value) in shares.entries)
+        ExpenseShare(participantId: key, shares: value),
+    ],
   );
 }
 

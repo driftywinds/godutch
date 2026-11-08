@@ -89,6 +89,40 @@ void main() {
   SpliitClient serverClient({int expensesStatus = 200}) => SpliitClient(
         baseUrl: 'https://example.test',
         httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('invitations.previewLink')) {
+            return http.Response(
+                jsonEncode([
+                  {
+                    'result': {
+                      'data': {
+                        'json': {
+                          'preview': {
+                            'group': {'id': 'g1', 'name': 'Banff Trip', 'groupType': 'GROUP'},
+                            'inviter': {'name': 'Ada'},
+                            'role': 'MEMBER',
+                            'usable': true,
+                            'memberCount': 2,
+                          },
+                        },
+                      },
+                    },
+                  },
+                ]),
+                200);
+          }
+          if (req.url.path.endsWith('invitations.acceptLink')) {
+            return http.Response(
+                jsonEncode([
+                  {
+                    'result': {
+                      'data': {
+                        'json': {'groupId': 'g1', 'role': 'MEMBER'},
+                      },
+                    },
+                  },
+                ]),
+                200);
+          }
           if (req.url.path.endsWith('/groups.expenses.list')) {
             return expensesStatus == 200
                 ? http.Response(expensesResponse(), 200)
@@ -98,8 +132,10 @@ void main() {
         }),
       );
 
+  const inviteUrl = 'https://example.test/groups/g1?invite=invite-token-1234567890';
+
   Future<String?> pushAndJoin(WidgetTester tester, AppDatabase db, SpliitClient client,
-      {String url = 'https://example.test/groups/g1'}) async {
+      {String url = inviteUrl}) async {
     String? popped;
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),
@@ -158,7 +194,7 @@ void main() {
 
   testWidgets('an expense fetch failure fails the join and caches nothing (#81)',
       (tester) async {
-    expectUnexpectedError<SpliitApiException>('Joining https://example.test/groups/g1');
+    expectUnexpectedError<SpliitApiException>('Joining a Spliit Cloud group');
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -192,7 +228,7 @@ void main() {
   });
 
   testWidgets('a server error is shown inline and nothing is cached', (tester) async {
-    expectUnexpectedError<SpliitApiException>('Joining https://example.test/groups/g1');
+    expectUnexpectedError<SpliitApiException>('Joining a Spliit Cloud group');
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final client = SpliitClient(
@@ -251,7 +287,7 @@ void main() {
 
     expect(poppedGroupId, isNull);
     expect(requested, isFalse);
-    expect(find.textContaining("doesn't look like a group URL"), findsOneWidget);
+    expect(find.textContaining("doesn't look like a Spliit Cloud invite link"), findsOneWidget);
   });
 
   testWidgets('"Create a new group" opens the create form; creating closes Join with the new id (#115)',
@@ -302,14 +338,53 @@ void main() {
 
     expect(popped, 'g1');
     expect(find.byType(JoinGroupScreen), findsNothing);
-    expect(servers, ['https://spliit.app']);
+    // Join's own instance (the API host), not the link's web origin.
+    expect(servers, ['https://api.spliit.cloud']);
   });
 
   // Issue #118: "Couldn't join: type 'Null' is not a subtype of type
   // 'Map<String, dynamic>' in type cast" for a group the server doesn't have.
   SpliitClient answering(String body, {int status = 200}) => SpliitClient(
         baseUrl: 'https://example.test',
-        httpClient: MockClient((req) async => http.Response(body, status)),
+        httpClient: MockClient((req) async {
+          // Preview and accept succeed; the group read is what these tests
+          // make fail.
+          if (req.url.path.endsWith('invitations.previewLink')) {
+            return http.Response(
+                jsonEncode([
+                  {
+                    'result': {
+                      'data': {
+                        'json': {
+                          'preview': {
+                            'group': {'id': 'g1', 'name': 'Banff Trip', 'groupType': 'GROUP'},
+                            'inviter': {'name': 'Ada'},
+                            'role': 'MEMBER',
+                            'usable': true,
+                            'memberCount': 2,
+                          },
+                        },
+                      },
+                    },
+                  },
+                ]),
+                200);
+          }
+          if (req.url.path.endsWith('invitations.acceptLink')) {
+            return http.Response(
+                jsonEncode([
+                  {
+                    'result': {
+                      'data': {
+                        'json': {'groupId': 'g1', 'role': 'MEMBER'},
+                      },
+                    },
+                  },
+                ]),
+                200);
+          }
+          return http.Response(body, status);
+        }),
       );
 
   // Issue #118: "Couldn't join: type 'Null' is not a subtype of type
@@ -351,7 +426,7 @@ void main() {
       (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    expectUnexpectedError<SpliitResponseFormatException>('Joining https://example.test/groups/g1');
+    expectUnexpectedError<SpliitResponseFormatException>('Joining a Spliit Cloud group');
     final popped = await pushAndJoin(tester, db,
         answering('[{"result":{"data":{"json":{"group":[]}}}}]'));
 
@@ -365,10 +440,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Error details'), findsOneWidget);
     expect(find.textContaining('SpliitResponseFormatException'), findsOneWidget);
-    expect(find.textContaining('Joining https://example.test/groups/g1 failed.'), findsOneWidget);
+    expect(find.textContaining('Joining a Spliit Cloud group failed.'), findsOneWidget);
   });
 
-  testWidgets('a link pasted with a trailing period joins the right group (#118)', (tester) async {
+  testWidgets('a link pasted inside a sentence joins the right group (#118)', (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final asked = <String>[];
@@ -376,6 +451,40 @@ void main() {
       baseUrl: 'https://example.test',
       httpClient: MockClient((req) async {
         asked.add(req.url.queryParameters['input'] ?? '');
+        if (req.url.path.endsWith('invitations.previewLink')) {
+          return http.Response(
+              jsonEncode([
+                {
+                  'result': {
+                    'data': {
+                      'json': {
+                        'preview': {
+                          'group': {'id': 'g1', 'name': 'Banff Trip', 'groupType': 'GROUP'},
+                          'inviter': {'name': 'Ada'},
+                          'role': 'MEMBER',
+                          'usable': true,
+                          'memberCount': 2,
+                        },
+                      },
+                    },
+                  },
+                },
+              ]),
+              200);
+        }
+        if (req.url.path.endsWith('invitations.acceptLink')) {
+          return http.Response(
+              jsonEncode([
+                {
+                  'result': {
+                    'data': {
+                      'json': {'groupId': 'g1', 'role': 'MEMBER'},
+                    },
+                  },
+                },
+              ]),
+              200);
+        }
         if (req.url.path.endsWith('groups.expenses.list')) {
           return http.Response(expensesResponse(), 200);
         }
@@ -384,10 +493,10 @@ void main() {
     );
 
     final popped = await pushAndJoin(tester, db, client,
-        url: 'Join us: https://example.test/groups/g1.');
+        url: 'Join us: $inviteUrl');
 
     expect(popped, 'g1');
-    expect(asked.first, contains('"groupId":"g1"'));
+    expect(asked.any((input) => input.contains('"groupId":"g1"')), isTrue);
   });
 
   group('a copied link is offered in the empty field (#221)', () {
@@ -494,3 +603,6 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
   });
 }
+
+
+

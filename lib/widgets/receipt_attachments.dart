@@ -170,9 +170,10 @@ class ReceiptAttachmentsController extends ChangeNotifier {
       ..error = null;
     _changed();
     try {
-      final url = await client.uploadReceipt(a.photo.bytes,
-          ledgerId: ledgerId ??
-              (throw StateError('The group has no cloud ledger to upload into')));
+      // A group cached before it knew its ledger (or an older server) has
+      // no ledgerId: the client's compatibility path signs the upload
+      // without one, rather than refusing to attach a receipt at all.
+      final url = await client.uploadReceipt(a.photo.bytes, ledgerId: ledgerId);
       // Shown from this device, not downloaded back. Best effort.
       try {
         await cache.store(url,

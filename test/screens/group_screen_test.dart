@@ -353,7 +353,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('Delete removes it from the list, credited to you, even when the refresh after fails',
+    testWidgets('Delete removes it from the list even when the refresh after fails',
         (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -381,7 +381,8 @@ void main() {
 
       await deleteFromList(tester, 'Coffee');
 
-      expect((jsonDecode(deleted!.body) as Map)['0']['json']['participantId'], 'p1');
+      expect((jsonDecode(deleted!.body) as Map)['0']['json'],
+          {'groupId': 'g1', 'expenseId': 'Coffee'});
       expect(find.text('Coffee'), findsNothing);
       expect(find.text('Tea'), findsOneWidget);
       expect((await db.expensesForGroup('g1')).map((e) => e.id), ['Tea']);
@@ -579,6 +580,10 @@ void main() {
       await tester.tap(find.text('Snacks'));
       await tester.pumpAndSettle();
       await tester.tap(actionButton('Retry'));
+      await tester.pumpAndSettle();
+      // Retry requeues; the flush it triggers is real async database work,
+      // which pumpAndSettle doesn't wait for. Run it to completion.
+      await tester.runAsync(outbox.flush);
       await tester.pumpAndSettle();
 
       expect(find.text('sync failed'), findsNothing);
@@ -894,9 +899,32 @@ void main() {
         {bool cacheGroup = true}) async {
       if (cacheGroup) await db.cacheGroup(cachedGroup);
       final shared = <(Uri, String?)>[];
+      final invite = Uri.parse('https://spliit.cloud/groups/g1?invite=abcdefghijklmnop1234');
       final client = SpliitClient(
         baseUrl: 'https://example.test',
-        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+        httpClient: MockClient((req) async {
+          if (req.url.path.endsWith('invitations.createSharedLink')) {
+            return http.Response(
+                jsonEncode([
+                  {
+                    'result': {
+                      'data': {
+                        'json': {
+                          'invitationId': 'i1',
+                          'inviteUrl': invite.toString(),
+                        },
+                      },
+                    },
+                  },
+                ]),
+                200);
+          }
+          if (req.url.path.endsWith('invitations.list')) {
+            return http.Response(
+                '[{"result":{"data":{"json":{"invitations":[]}}}}]', 200);
+          }
+          throw http.ClientException('offline');
+        }),
       );
       await tester.pumpWidget(MaterialApp(
         locale: const Locale('en'),
@@ -933,7 +961,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     });
 
-    testWidgets('Share group shares <server>/groups/<id> with the group name, offline too (#3)',
+    testWidgets('Share group shares a Cloud invite link with the group name (#3)',
         (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -944,7 +972,9 @@ void main() {
       await tester.tap(find.text('Share group'));
       await tester.pumpAndSettle();
 
-      expect(shared, [(Uri.parse('https://example.test/groups/g1'), 'Banff Trip')]);
+      expect(shared, [
+        (Uri.parse('https://spliit.cloud/groups/g1?invite=abcdefghijklmnop1234'), 'Banff Trip')
+      ]);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
     });
@@ -963,7 +993,10 @@ void main() {
       await tester.tap(find.text('Share group'));
       await tester.pumpAndSettle();
 
-      expect(shared, [(Uri.parse('https://example.test/groups/g1'), null)]);
+      // The invite needs only the group id; the name isn't cached yet.
+      expect(shared, [
+        (Uri.parse('https://spliit.cloud/groups/g1?invite=abcdefghijklmnop1234'), null)
+      ]);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
     });

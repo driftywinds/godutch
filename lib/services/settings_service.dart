@@ -28,11 +28,7 @@ const receiptStorageLimitChoicesMb = [250, 500, 1000, 2000];
 const defaultReceiptStorageLimitMb = 500;
 
 class SettingsService {
-  static const _keyServerUrl = 'server_url';
-  static const _keyGroupId = 'group_id';
-  static const _keyActiveUserId = 'active_user_id';
   static const _keyDefaultActiveUserName = 'default_active_user_name';
-
   static const _keyThemeMode = 'theme_mode';
   static const _keyPreferredLocaleTag = 'preferred_locale_tag';
 
@@ -202,28 +198,13 @@ class SettingsService {
     if (!saved) throw StateError('Could not save language preference');
   }
 
-  /// Legacy single-group server URL -- see class doc. Read-only; only
-  /// main.dart's startup migration reads this.
-  Future<String?> legacyServerUrl() async =>
-      (await SharedPreferences.getInstance()).getString(_keyServerUrl);
-
-  /// Legacy single-group id -- see class doc.
-  Future<String?> legacyGroupId() async =>
-      (await SharedPreferences.getInstance()).getString(_keyGroupId);
-
-  /// Legacy single global active-user id -- see class doc. Superseded by
-  /// AppDatabase's per-group `activeParticipantId` plus
-  /// [defaultActiveUserName] below.
-  Future<String?> legacyActiveUserId() async =>
-      (await SharedPreferences.getInstance()).getString(_keyActiveUserId);
-
   /// The device-wide preferred display name used to auto-match a newly
   /// opened or joined group's active participant without prompting --
   /// see [resolveActiveParticipant] in lib/services/active_user.dart and
   /// decisions/multi-group-design.md, decision 2. Never synced to the
   /// server; purely a local convenience, same as the per-group choice it
   /// helps seed. Set from the first person picked in "Who are you?"
-  /// (issue #85), or by the legacy single-group migration.
+  /// (issue #85).
   Future<String?> defaultActiveUserName() async =>
       (await SharedPreferences.getInstance())
           .getString(_keyDefaultActiveUserName);

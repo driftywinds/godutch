@@ -367,8 +367,9 @@ class ReceiptDownloader {
     for (final expenseId in toRead) {
       if (run.cancelled) return (problem: null, failure: failure);
       try {
+        final generation = db.expensesGeneration(groupId);
         final fresh = await client.fetchExpense(groupId: groupId, expenseId: expenseId);
-        await db.cacheExpenseDetails(groupId, fresh);
+        await db.cacheExpenseDetails(groupId, fresh, fetchedAtGeneration: generation);
       } catch (e, st) {
         // Deleted meanwhile: the next refresh drops it.
         if (e is SpliitApiException && e.isNotFound) continue;

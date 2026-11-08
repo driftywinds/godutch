@@ -586,4 +586,132 @@ void main() {
     expect(cloudCategoryIdForLocal(9), 'groceries');
     expect(cloudCategoryIdForLocal(46), 'settlement');
   });
+
+  test('a converted expense sends its paid-in amount and rate, not the group total', () async {
+    // Cloud resolves `amount` in the expense's currency and multiplies it by
+    // the rate: €100 at 1.1 is $110. Sending $110 with the same rate would
+    // store $121.
+    late Map<String, dynamic> input;
+    final client = cloudClient((request) async {
+      input = ((jsonDecode(request.body) as Map)['0'] as Map)['json'] as Map<String, dynamic>;
+      return http.Response(trpcJson({'expenseId': 'e1'}), 200);
+    });
+    await client.createExpense(
+      groupId: 'g1',
+      title: 'Dinner',
+      amountCents: 11000,
+      paidBy: 'p1',
+      paidFor: const [ExpenseShare(participantId: 'p1', shares: 10000)],
+      originalAmountCents: 10000,
+      originalCurrency: 'EUR',
+      conversionRate: 1.1,
+      date: DateTime(2026, 11, 3),
+    );
+
+    final expense = input['expense'] as Map<String, dynamic>;
+    expect(expense['amount'], 10000);
+    expect(expense['conversion'], {'type': 'custom', 'currency': 'EUR', 'rate': 1.1});
+    // One payer pays the same paid-in amount.
+    expect(expense['paidByList'], [
+      {'participant': 'p1', 'shares': 10000}
+    ]);
+  });
+
+  test('a converted expense splits its payers across the paid-in amount', () async {
+    late Map<String, dynamic> input;
+    final client = cloudClient((request) async {
+      input = ((jsonDecode(request.body) as Map)['0'] as Map)['json'] as Map<String, dynamic>;
+      return http.Response(trpcJson({'expenseId': 'e1'}), 200);
+    });
+    await client.createExpense(
+      groupId: 'g1',
+      title: 'Taxi',
+      amountCents: 11000,
+      paidBy: 'p1',
+      paidFor: const [ExpenseShare(participantId: 'p1', shares: 1)],
+      payers: const [
+        ExpenseShare(participantId: 'p1', shares: 5500),
+        ExpenseShare(participantId: 'p2', shares: 5500),
+      ],
+      originalAmountCents: 10000,
+      originalCurrency: 'EUR',
+      conversionRate: 1.1,
+      date: DateTime(2026, 11, 3),
+    );
+    final expense = input['expense'] as Map<String, dynamic>;
+    expect(expense['amount'], 10000);
+    expect(expense['paidByList'], [
+      {'participant': 'p1', 'shares': 5000},
+      {'participant': 'p2', 'shares': 5000},
+    ]);
+  });
+
+  test('an itemized expense keeps Cloud\'s split mode', () async {
+    late Map<String, dynamic> input;
+    final client = cloudClient((request) async {
+      input = ((jsonDecode(request.body) as Map)['0'] as Map)['json'] as Map<String, dynamic>;
+      return http.Response(trpcJson({'expenseId': 'e1'}), 200);
+    });
+    await client.createExpense(
+      groupId: 'g1',
+      title: 'Groceries',
+      amountCents: 3000,
+      paidBy: 'p1',
+      paidFor: const [ExpenseShare(participantId: 'p1', shares: 3000)],
+      splitMode: SplitMode.byAmount,
+      date: DateTime(2026, 11, 3),
+      items: const [
+        ExpenseItem(
+          id: '',
+          title: 'Milk',
+          amountCents: 3000,
+          unitPriceCents: 1500,
+          quantityMilli: 2000,
+          paidFor: [ExpenseShare(participantId: 'p1', shares: 1)],
+        ),
+      ],
+    );
+    final expense = input['expense'] as Map<String, dynamic>;
+    expect(expense['splitMode'], 'ITEMIZED');
+  });
+
+  test('a non-JSON error response keeps its HTTP status', () async {
+    final client = cloudClient((request) async =>
+        http.Response('<html>Bad gateway</html>', 502));
+    expect(
+      () => client.fetchGroupSummaries(),
+      throwsA(isA<SpliitApiException>().having((e) => e.statusCode, 'status', 502)),
+    );
+  });
+
+  test('an ITEMIZED expense is read as exact amounts, with its tag', () async {
+    final client = cloudClient((request) async => http.Response(
+          trpcJson({
+            'expense': {
+              'id': 'e1',
+              'title': 'Groceries',
+              'amount': 3000,
+              'expenseDate': '2026-11-03T12:00:00.000Z',
+              'expenseTimeZone': 'UTC',
+              'categoryId': 'groceries',
+              'splitMode': 'ITEMIZED',
+              'paidBySplitMode': 'BY_AMOUNT',
+              'paidByList': [
+                {'ledgerParticipantId': 'p1', 'shares': 3000}
+              ],
+              'paidFor': [
+                {'ledgerParticipantId': 'p1', 'shares': 1000},
+                {'ledgerParticipantId': 'p2', 'shares': 2000}
+              ],
+              'version': 1,
+            }
+          }),
+          200,
+        ));
+    final expense = await client.fetchExpense(groupId: 'g1', expenseId: 'e1');
+    expect(expense.isItemized, isTrue);
+    expect(expense.splitMode, SplitMode.byAmount);
+    expect(expense.splitModeTag, 'ITEMIZED');
+    expect(expense.paidFor.map((s) => s.shares), [1000, 2000]);
+  });
 }

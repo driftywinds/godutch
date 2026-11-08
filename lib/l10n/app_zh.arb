@@ -139,6 +139,7 @@
   "expenseSelectAll": "全选",
   "expenseSplitLabel": "分摊方式",
   "expenseSplitEvenly": "均摊",
+  "expenseSplitItemized": "按明细",
   "expenseSplitShares": "份额",
   "expenseSplitPercent": "百分比",
   "expenseSplitAmount": "金额",

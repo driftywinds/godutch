@@ -69,10 +69,11 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       TextEditingController(text: widget.group?.name ?? '');
   late final _informationController =
       TextEditingController(text: widget.group?.information ?? '');
-  late Currency _selectedCurrency =
-      currencyByCode(widget.group?.currencyCode);
-  late final _customSymbolController =
-      TextEditingController(text: widget.group?.currency ?? '');
+  late Currency _selectedCurrency = widget.creating
+      ? defaultCurrencyFor(WidgetsBinding.instance.platformDispatcher.locale)
+      : currencyByCode(widget.group?.currencyCode);
+  late final _customSymbolController = TextEditingController(
+      text: widget.creating ? _selectedCurrency.symbol : widget.group?.currency ?? '');
 
   bool _saving = false;
   String? _error;
@@ -80,6 +81,10 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   DateSpan? _dateSpan;
   List<GroupInvitation> _invitations = const [];
   bool _loadingInvitations = false;
+
+  /// A group this form already created. If reading it back failed, Save
+  /// must retry the read, never create a second group.
+  String? _createdGroupId;
 
   bool get _creating => widget.creating;
   Group? get _group => widget.group;
@@ -89,7 +94,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     super.initState();
     if (!_creating) {
       _seeded = true;
-      _loadCachedMeta();
+      _watchCachedMeta();
       if (_group?.canManage == true) {
         unawaited(_loadInvitations());
       }
@@ -97,22 +102,35 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 
   bool _seeded = false;
+  StreamSubscription<List<ExpenseRow>>? _expensesSub;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_seeded) return;
+    if (_seeded || !_creating) return;
     _seeded = true;
     _selectedCurrency = defaultCurrencyFor(View.of(context).platformDispatcher.locale);
     _customSymbolController.text = _selectedCurrency.symbol;
   }
 
-  Future<void> _loadCachedMeta() async {
+  @override
+  void dispose() {
+    _expensesSub?.cancel();
+    _nameController.dispose();
+    _informationController.dispose();
+    _customSymbolController.dispose();
+    super.dispose();
+  }
+
+  /// The cached span follows every write, not just the first read: a
+  /// background refresh or a sync finishing updates it live (#55).
+  void _watchCachedMeta() {
     final group = _group;
     if (group == null) return;
-    final expenses = await widget.db.expensesForGroup(group.id);
-    if (!mounted) return;
-    setState(() => _dateSpan = computeDateSpan(expenses));
+    _expensesSub = widget.db.watchExpensesForGroup(group.id).listen((rows) {
+      if (!mounted) return;
+      setState(() => _dateSpan = computeDateSpan(rows));
+    });
   }
 
   Future<void> _loadInvitations() async {
@@ -129,14 +147,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     } finally {
       if (mounted) setState(() => _loadingInvitations = false);
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _informationController.dispose();
-    _customSymbolController.dispose();
-    super.dispose();
   }
 
   Future<void> _pickCurrency() async {
@@ -181,15 +191,17 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     });
     try {
       if (_creating) {
-        final id = await widget.client.createGroup(
-          name: name,
-          information: information,
-          currency: currencySymbol,
-          currencyCode: isCustom ? null : _selectedCurrency.code,
-          participantNames: [
-            widget.client.connection.account?.name ?? 'Me',
-          ],
-        );
+        final id = _createdGroupId ??
+            await widget.client.createGroup(
+              name: name,
+              information: information,
+              currency: currencySymbol,
+              currencyCode: isCustom ? null : _selectedCurrency.code,
+              participantNames: [
+                widget.client.connection.account?.name ?? 'Me',
+              ],
+            );
+        _createdGroupId = id;
         final group = await widget.client.fetchGroup(id);
         await cacheJoinedGroup(
           db: widget.db,

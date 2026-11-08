@@ -131,6 +131,7 @@ class ItemsCard extends StatelessWidget {
       ItemsExceedTotal(:final overBy) => l10n.expenseItemsOver(
           formatMoney(overBy, model.group.currency, decimalDigits: model.digits, locale: context.appLocale)),
       LeftoverProblem(:final problem) => SplitDraftFields.problemFor(context, model.remainderSplit, problem),
+      ItemsWithConversion() => l10n.expenseItemsNoConversion,
     };
   }
 }

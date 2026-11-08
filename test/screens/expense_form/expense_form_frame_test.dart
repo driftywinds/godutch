@@ -146,7 +146,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final saved = db.rowToExpense((await db.pendingExpenses()).single);
-      expect((saved.isSettlement, saved.category, saved.amountCents, saved.splitMode), (true, 1, 3000, SplitMode.byAmount));
+      expect((saved.isSettlement, saved.category, saved.amountCents, saved.splitMode), (true, 46, 3000, SplitMode.byAmount));
       expect(popped, [true]);
     });
 

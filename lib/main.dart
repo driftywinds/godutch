@@ -248,6 +248,7 @@ class _RootState extends State<AppRoot> {
   bool _readyForLinks = false;
   bool _loading = true;
   bool _recoveryRequired = false;
+  bool _initialHadLink = false;
   CloudAccount? _account;
 
   SpliitClient _buildClient() =>
@@ -258,7 +259,12 @@ class _RootState extends State<AppRoot> {
   Future<void> _start() async {
     try {
       final initial = await widget.initialLink;
-      if (initial != null) _receiveLink(initial);
+      if (initial != null) {
+        // A link the app opens on takes precedence over where it was left:
+        // don't also reopen the last group underneath it.
+        _initialHadLink = _linkKey(initial) != null;
+        _receiveLink(initial);
+      }
     } catch (error, stack) {
       ErrorReporter.instance
           .report(error, stack, operation: 'Reading the initial app link');
@@ -331,11 +337,16 @@ class _RootState extends State<AppRoot> {
   String? _linkKey(Uri uri) {
     if (uri.scheme != 'https' || uri.host.isEmpty) return null;
     if (uri.path.startsWith('/groups/')) {
-      final token = uri.queryParameters['invite'];
-      if (token != null && token.isNotEmpty) return 'invite:${uri.path}:$token';
-      return null;
+      // Only a real Cloud invite is actionable; a plain group URL or a
+      // malformed token would open a Join screen that can't join.
+      if (parseCloudInviteUrl(uri.toString()) == null) return null;
+      final token = uri.queryParameters['invite']!;
+      return 'invite:${uri.path}:$token';
     }
-    if (uri.path == '/auth/recover') return 'recover:${uri.fragment}';
+    if (uri.path == '/auth/recover') {
+      if (parseRecoveryLink(uri.fragment) == null) return null;
+      return 'recover:${uri.fragment}';
+    }
     return null;
   }
 
@@ -464,6 +475,7 @@ class _RootState extends State<AppRoot> {
       account: account,
       onAccountChanged: (value) => setState(() => _account = value),
       onSignOut: _signedOut,
+      openLastOnStart: !_initialHadLink,
     );
   }
 }

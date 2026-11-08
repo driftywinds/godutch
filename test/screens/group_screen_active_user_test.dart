@@ -28,6 +28,13 @@ void main() {
       Participant(id: 'alex', name: 'Alex'),
       Participant(id: 'bea', name: 'Bea'),
     ],
+    // A full Cloud group: the first-ask prompt only applies once the
+    // roster is known and the account binding doesn't name a participant.
+    members: [
+      GroupMember(id: 'm1', accountId: 'a1', name: 'Alex', participantId: 'alex'),
+      GroupMember(id: 'm2', accountId: 'a2', name: 'Bea', participantId: 'bea'),
+    ],
+    memberCount: 2,
   );
   final prompt = find.text('Who are you?');
 
@@ -344,13 +351,23 @@ void main() {
     useNarrowLargeText(tester);
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    await db.cacheGroup(const Group(id: 'g1', name: 'Banff', currency: '\$', participants: [
-      Participant(id: 'alex', name: 'Alex'),
-      Participant(id: 'bart', name: 'Bartholomew Montgomery-Fitzgerald'),
-    ]));
+    await db.cacheGroup(const Group(
+      id: 'g1',
+      name: 'Banff',
+      currency: '\$',
+      participants: [
+        Participant(id: 'alex', name: 'Alex'),
+        Participant(id: 'bart', name: 'Bartholomew Montgomery-Fitzgerald'),
+      ],
+      members: [
+        GroupMember(id: 'm1', accountId: 'a1', name: 'Alex', participantId: 'alex'),
+        GroupMember(id: 'm2', accountId: 'a2', name: 'Bartholomew Montgomery-Fitzgerald', participantId: 'bart'),
+      ],
+      memberCount: 2,
+    ));
 
     await openGroup(tester, db, locale: const Locale('fr'));
-    expect(find.text('Qui êtes-vous ?'), findsOneWidget);
+    expect(find.textContaining('Qui êtes-vous'), findsOneWidget);
     expect(tester.takeException(), isNull);
     expect(tester.getRect(find.text('Je ne suis pas dans la liste')).right,
         lessThanOrEqualTo(360));

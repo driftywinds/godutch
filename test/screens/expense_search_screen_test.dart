@@ -199,7 +199,7 @@ void main() {
     expect(
         find.descendant(of: find.byType(BottomSheet), matching: find.text('Dinner at Lupo')),
         findsOneWidget);
-    final field = tester.widget<TextField>(find.byType(TextField));
+    final field = tester.widget<TextField>(find.byType(TextField).first);
     expect(field.focusNode!.hasFocus, isFalse);
     await teardown(tester);
   });

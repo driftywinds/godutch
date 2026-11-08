@@ -16,10 +16,15 @@ extension SplitModeWire on SplitMode {
         SplitMode.byAmount => 'BY_AMOUNT',
       };
 
+  /// [Expense.splitMode] is what the split's shares mean, not every Cloud
+  /// value: `ITEMIZED` stores its shares as exact amounts, like
+  /// [SplitMode.byAmount], so that's what it maps to. The raw value is kept
+  /// separately ([Expense.splitModeTag]) because Cloud, and the web app,
+  /// tell an itemized expense from a flat one by it.
   static SplitMode fromWire(String value) => switch (value) {
         'BY_SHARES' => SplitMode.byShares,
         'BY_PERCENTAGE' => SplitMode.byPercentage,
-        'BY_AMOUNT' => SplitMode.byAmount,
+        'BY_AMOUNT' || 'ITEMIZED' => SplitMode.byAmount,
         _ => SplitMode.evenly,
       };
 }
@@ -157,6 +162,30 @@ class Expense {
   final List<ExpenseShare> paidFor;
   final SplitMode splitMode;
 
+  /// The split mode exactly as Cloud stores it (`EVENLY`, `ITEMIZED`, …),
+  /// or '' for a locally-built expense, where [splitMode]'s own wire value
+  /// is what's written. [splitMode] can't carry `ITEMIZED` because its
+  /// shares are exact amounts, which is what the enum's `byAmount` means;
+  /// keeping the tag lets an itemized expense round-trip through an edit as
+  /// itemized, and lets the UI show it as one.
+  final String splitModeTag;
+
+  /// The same for who paid: Cloud's `paidBySplitMode`.
+  final String paidBySplitModeTag;
+
+  /// Cloud's `ITEMIZED`: the split is the expense's lines and their
+  /// leftover. Its stored [paidFor] is the amounts those work out to, in
+  /// the expense's own currency.
+  bool get isItemized => splitModeTag == 'ITEMIZED';
+
+  /// [splitMode] as Cloud's wire value, unless a raw tag was read.
+  String get splitModeWireValue =>
+      splitModeTag.isEmpty ? splitMode.wireValue : splitModeTag;
+
+  /// [paidBySplitMode] as Cloud's wire value, unless a raw tag was read.
+  String get paidBySplitModeWireValue =>
+      paidBySplitModeTag.isEmpty ? paidBySplitMode.wireValue : paidBySplitModeTag;
+
   /// Spliit Cloud's category id (`general`, `groceries`, `settlement`, …).
   /// The legacy [category] int below is kept as the app's local, stable
   /// id for icons, localized names and the picker.
@@ -259,6 +288,8 @@ class Expense {
     required this.paidBy,
     required this.paidFor,
     this.splitMode = SplitMode.evenly,
+    this.splitModeTag = '',
+    this.paidBySplitModeTag = '',
     this.categoryId = 'general',
     this.paidByList = const [],
     this.paidBySplitMode = SplitMode.byAmount,
@@ -299,6 +330,8 @@ class Expense {
     String? paidBy,
     List<ExpenseShare>? paidFor,
     SplitMode? splitMode,
+    String? splitModeTag,
+    String? paidBySplitModeTag,
     String? categoryId,
     List<ExpenseShare>? paidByList,
     SplitMode? paidBySplitMode,
@@ -334,6 +367,8 @@ class Expense {
         paidBy: paidBy ?? this.paidBy,
         paidFor: paidFor ?? this.paidFor,
         splitMode: splitMode ?? this.splitMode,
+        splitModeTag: splitModeTag ?? this.splitModeTag,
+        paidBySplitModeTag: paidBySplitModeTag ?? this.paidBySplitModeTag,
         categoryId: categoryId ?? this.categoryId,
         paidByList: paidByList ?? this.paidByList,
         paidBySplitMode: paidBySplitMode ?? this.paidBySplitMode,

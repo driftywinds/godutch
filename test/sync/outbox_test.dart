@@ -180,11 +180,16 @@ void main() {
     expect(captured, isNotNull);
     final sent = jsonDecode(captured!.body) as Map<String, dynamic>;
     final formValues =
-        (sent['0'] as Map<String, dynamic>)['json']['expenseFormValues'] as Map<String, dynamic>;
+        (sent['0'] as Map<String, dynamic>)['json']['expense'] as Map<String, dynamic>;
     expect(formValues['recurrenceRule'], 'MONTHLY');
-    expect(formValues['originalAmount'], 9000);
-    expect(formValues['originalCurrency'], 'EUR');
-    expect(formValues['conversionRate'], 1.111);
+    // Cloud takes the paid-in amount as `amount` and works the group total
+    // out from the conversion; the old flat originalAmount fields are gone.
+    expect(formValues['amount'], 9000);
+    expect(formValues['conversion'], {
+      'type': 'custom',
+      'currency': 'EUR',
+      'rate': 1.111,
+    });
   });
 
   // Issue #42 (constructor-bound groupId per issue #52): flush() must
@@ -383,8 +388,9 @@ void main() {
     });
   });
 
-  // Issue #92: a queued expense is credited to whoever was the active
-  // user when it was added, not whoever is active when it finally syncs.
+  // #92 in the old client sent the active participant id. Cloud attributes
+  // a create to the signed-in account, and its create input has no such
+  // field, so the payload must not invent one.
   group('activity attribution', () {
     Future<Map<String, dynamic>> flushAndCapture() async {
       http.Request? captured;
@@ -400,15 +406,9 @@ void main() {
           as Map<String, dynamic>;
     }
 
-    test('flush() credits the participant captured when the expense was added',
-        () async {
+    test('flush() leaves attribution to the account Cloud signs in', () async {
       await db.insertPending(pendingExpense('local-1'), addedByParticipantId: 'p2');
-      expect((await flushAndCapture())['participantId'], 'p2');
-    });
-
-    test('flush() sends None for a row with nobody captured', () async {
-      await db.insertPending(pendingExpense('local-1'));
-      expect((await flushAndCapture())['participantId'], 'None');
+      expect((await flushAndCapture()).containsKey('participantId'), isFalse);
     });
   });
 
@@ -443,7 +443,7 @@ void main() {
     );
     await Outbox(db, client, groupId: 'g1').flush();
 
-    expect(jsonDecode(captured!.body)['0']['json']['expenseFormValues']['documents'],
+    expect(jsonDecode(captured!.body)['0']['json']['expense']['documents'],
         [receipt.toJson()]);
     final synced = (await db.expensesForGroup('g1')).single;
     expect(synced.id, 'server-1');
@@ -462,7 +462,7 @@ void main() {
       final client = SpliitClient(
         baseUrl: 'https://example.test',
         httpClient: MockClient((req) async {
-          final title = (jsonDecode(req.body)['0']['json']['expenseFormValues'] as Map)['title'];
+          final title = (jsonDecode(req.body)['0']['json']['expense'] as Map)['title'];
           creates.add(title as String);
           await gate.future;
           return http.Response(

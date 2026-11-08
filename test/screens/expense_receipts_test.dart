@@ -109,6 +109,18 @@ void main() {
     final client = SpliitClient(
       baseUrl: 'https://example.test',
       httpClient: MockClient((req) async {
+        // The details sheet reads comments too; none here.
+        if (req.url.path.endsWith('groups.expenses.comments.list')) {
+          return http.Response(jsonEncode([
+            {
+              'result': {
+                'data': {
+                  'json': {'comments': <Object>[]},
+                },
+              },
+            },
+          ]), 200);
+        }
         if (!req.url.path.endsWith('groups.expenses.get')) return http.Response('no', 500);
         final i = gets[0]++;
         return answers[i < answers.length ? i : answers.length - 1]();

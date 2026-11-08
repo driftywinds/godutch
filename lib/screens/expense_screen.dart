@@ -328,9 +328,13 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   /// from being usable in the meantime (it just starts as plain
   /// "everyone, evenly" and switches over once the read completes).
   Future<void> _loadDefaultSplit() async {
+    // The read can finish after the user has already changed the split; the
+    // default is where the form starts, not something to overwrite an edit
+    // with (#329 review).
+    final startedWith = _m.splitStateSnapshot;
     final split = await widget.db.defaultSplitFor(widget.group.id);
     if (!mounted || split == null) return;
-    _m.applyDefaultSplit(split);
+    _m.applyDefaultSplit(split, expectedSplit: startedWith);
   }
 
   void _changed() => setState(() {});
@@ -1162,10 +1166,44 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     // Update keeps the ids sent, so these are the server's now (#123).
     // Best effort: the edit is saved either way.
     try {
+      final existing = widget.existingExpense!;
+      final itemized = items != null && items.isNotEmpty;
+      await widget.db.cacheEditedExpense(Expense(
+        id: existing.id,
+        groupId: widget.group.id,
+        title: _m.titleController.text.trim(),
+        amountCents: amounts.amount,
+        paidBy: payers.first.participantId,
+        paidFor: paidFor,
+        splitMode: _m.splitModeToSave,
+        splitModeTag: itemized ? 'ITEMIZED' : '',
+        paidByList: payers.length > 1 ? payers : const [],
+        isMultiPayer: payers.length > 1,
+        items: items ?? const [],
+        itemizedRemainder: remainder,
+        categoryId: existing.categoryId,
+        category: _m.categoryToSave,
+        notes: _m.notes,
+        date: _m.date,
+        isSettlement: _m.isSettlement,
+        recurrenceRule: _m.recurrenceRule,
+        originalAmountCents: amounts.originalAmount,
+        originalCurrency: amounts.originalCurrency,
+        conversionRate: amounts.conversionRate,
+        canEdit: existing.canEdit,
+        canDelete: existing.canDelete,
+        canManageRecurrence: existing.canManageRecurrence,
+        recurringSeriesId: existing.recurringSeriesId,
+        version: existing.version + 1,
+        createdAt: existing.createdAt,
+        documents: _receipts.documents,
+        documentCount: _receipts.documents.length,
+        detailsFetchedAt: DateTime.now(),
+      ));
       await widget.db.cacheExpenseDocuments(
-          widget.group.id, widget.existingExpense!.id, _receipts.documents);
+          widget.group.id, existing.id, _receipts.documents);
     } catch (e, st) {
-      ErrorReporter.instance.report(e, st, operation: 'Storing an edited expense\'s receipts');
+      ErrorReporter.instance.report(e, st, operation: 'Storing an edited expense');
     }
     await _rememberDefaultSplitIfRequested(paidFor);
     unawaited(Haptics.saved());

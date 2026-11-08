@@ -139,6 +139,7 @@
   "expenseSelectAll": "Tout sélectionner",
   "expenseSplitLabel": "Répartition",
   "expenseSplitEvenly": "Également",
+  "expenseSplitItemized": "Détaillé",
   "expenseSplitShares": "Parts",
   "expenseSplitPercent": "Pourcentage",
   "expenseSplitAmount": "Montant",

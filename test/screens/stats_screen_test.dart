@@ -197,7 +197,7 @@ void main() {
   });
 
 
-  testWidgets('a category missing from the server\'s list gets an id-based label', (tester) async {
+  testWidgets('categories are resolved from the Cloud catalogue by id', (tester) async {
     tester.view.physicalSize = const Size(800, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -220,7 +220,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('Category 9'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
     // See the first test above for why. (issue #47)
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

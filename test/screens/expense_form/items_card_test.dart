@@ -144,7 +144,7 @@ void main() {
 
     await save(tester);
     final sent = sentExpense(requests.single);
-    expect(sent['splitMode'], 'BY_AMOUNT');
+    expect(sent['splitMode'], 'ITEMIZED');
     expect(sent['paidFor'], [
       {'participant': 'alex', 'shares': 2500},
       {'participant': 'bea', 'shares': 500},

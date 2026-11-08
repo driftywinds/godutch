@@ -96,7 +96,7 @@ void main() {
   test('a request to a client that must not be used fails the test, even when caught', () async {
     final client = SpliitClient(baseUrl: 'https://x.test', httpClient: noRequestsClient());
     await expectLater(client.fetchGroup('g1'), throwsStateError);
-    expectFailure(['must not be used', 'https://x.test/api/trpc/groups.get']);
+    expectFailure(['must not be used', 'https://x.test/trpc/groups.get']);
     // The client itself is still an ordinary http client.
     expect(noRequestsClient(), isA<http.Client>());
   });

@@ -742,7 +742,13 @@ class ExpenseFormModel extends ChangeNotifier {
   /// Applies this group's remembered "Paid for" split (issue #29,
   /// decisions/paid-for-split-ux-spec.md section 7), if it still applies
   /// to the group's current participants.
-  void applyDefaultSplit(DefaultSplit split) {
+  ///
+  /// [expectedSplit] is the split as it was when the caller started reading
+  /// the remembered one. The read is asynchronous, so by the time it lands
+  /// the user may have changed the split themselves; only apply the
+  /// default while the split still reads exactly as it did before.
+  void applyDefaultSplit(DefaultSplit split, {List<Object?>? expectedSplit}) {
+    if (expectedSplit != null && !listEquals(expectedSplit, _splitState())) return;
     if (!split.appliesTo(group.participants)) return;
     // It arrives after the form opens: what it fills in is where the
     // form starts, not a change of the user's.
@@ -910,8 +916,13 @@ class ExpenseFormModel extends ChangeNotifier {
     if (isItemized) return _itemizedPaidFor();
     if (splitProblem() != null) return null;
     // The balance settled, exactly: converting it there and back could
-    // leave a unit owed (#262, acceptance case 1).
-    if (_balanceKept) return [ExpenseShare(participantId: _balance!.to, shares: _balance!.amount)];
+    // leave a unit owed (#262, acceptance case 1). In another currency the
+    // share Cloud stores is the paid-in amount the form shows, not the
+    // group-currency balance; [amountsToSave] sends that same amount.
+    if (_balanceKept) {
+      final share = converting ? originalAmount : _balance!.amount;
+      return share == null ? null : [ExpenseShare(participantId: _balance!.to, shares: share)];
+    }
     if (_keepsSavedSplit) return existing!.paidFor;
     final included = includedParticipants;
     return switch (_splitMode) {
@@ -976,6 +987,10 @@ class ExpenseFormModel extends ChangeNotifier {
         _splitMode,
         for (final p in group.participants) ...[_included[p.id], splitControllers[p.id]!.text],
       ];
+
+  /// [splitState]'s value now, for a caller that reads something async and
+  /// needs to know whether the split has been edited meanwhile.
+  List<Object?> get splitStateSnapshot => _splitState();
 
   // ---------------------------------------------------------------------
   // Line items.
@@ -1073,6 +1088,10 @@ class ExpenseFormModel extends ChangeNotifier {
   /// the expense isn't itemized.
   ItemizedProblem? itemizedProblem() {
     if (!isItemized) return null;
+    // Cloud keeps an itemized expense's lines in its own currency; sending
+    // them with a conversion would need every line converted too, which
+    // this form doesn't do. Refuse rather than save a mixed-currency bill.
+    if (converting) return const ItemsWithConversion();
     if (_items.isEmpty) return const NoItems();
     for (final (index, item) in _items.indexed) {
       if (!item.hasTitle) return ItemUnfinished(index, ItemFault.name);
@@ -1342,6 +1361,12 @@ class ItemsExceedTotal extends ItemizedProblem {
 class LeftoverProblem extends ItemizedProblem {
   const LeftoverProblem(this.problem);
   final SplitProblem problem;
+}
+
+/// The expense is both itemized and paid in another currency: its lines
+/// would need converting, which the form doesn't do yet.
+class ItemsWithConversion extends ItemizedProblem {
+  const ItemsWithConversion();
 }
 
 /// What [ExpenseFormModel.amountsToSave] found to save.

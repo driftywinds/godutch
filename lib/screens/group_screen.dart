@@ -737,8 +737,8 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
 
   /// A live shared link if one exists, otherwise a new one. Each group has
   /// a small cap on pending links, and members should share the same one.
-  Future<String> _inviteUrl(Group group) async {
-    final invitations = await widget.client.fetchInvitations(group.id);
+  Future<String> _inviteUrl(String groupId) async {
+    final invitations = await widget.client.fetchInvitations(groupId);
     final reusable = invitations.where((i) =>
         i.canCopyLink &&
         i.isShared &&
@@ -746,21 +746,21 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
         (i.maxUses == null || i.useCount < i.maxUses!));
     if (reusable.isNotEmpty) {
       return widget.client.invitationUrl(
-          groupId: group.id, invitationId: reusable.first.id);
+          groupId: groupId, invitationId: reusable.first.id);
     }
-    return (await widget.client.createInviteLink(group.id)).inviteUrl;
+    return (await widget.client.createInviteLink(groupId)).inviteUrl;
   }
 
   /// Shares an invite link (Cloud groups are private; a plain group URL
   /// cannot be joined). Works offline only up to the error: creating the
   /// link is an online, admin action.
   Future<void> _shareGroup() async {
-    final group = _group;
-    if (group == null) return;
     try {
-      final url = await _inviteUrl(group);
+      // The group's id is enough to make an invite; the name is only the
+      // share sheet's subject, and may not be cached yet.
+      final url = await _inviteUrl(widget.groupId);
       if (!mounted) return;
-      await widget.shareLink(Uri.parse(url), group.name);
+      await widget.shareLink(Uri.parse(url), _group?.name);
     } catch (e, st) {
       final error = ErrorReporter.instance
           .report(e, st, operation: 'Creating an invite link');
@@ -776,10 +776,8 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
   /// The same link as Share group, shown as a QR code other phones scan
   /// from the Join screen.
   Future<void> _showGroupQr() async {
-    final group = _group;
-    if (group == null) return;
     try {
-      final url = await _inviteUrl(group);
+      final url = await _inviteUrl(widget.groupId);
       if (!mounted) return;
       await showInviteLinkSheet(
         context,

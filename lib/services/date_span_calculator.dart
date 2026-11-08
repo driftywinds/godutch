@@ -1,4 +1,5 @@
 import '../db/app_database.dart';
+import 'date_only.dart';
 
 /// The earliest and latest date among a set of expenses -- e.g. a
 /// group's whole cached history (issue #55).
@@ -34,11 +35,10 @@ class DateSpan {
 /// since.
 DateSpan? computeDateSpan(List<ExpenseRow> rows) {
   if (rows.isEmpty) return null;
-  DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-  var first = dateOnly(rows.first.date);
+  var first = dateOnlyFromStorage(rows.first.date);
   var last = first;
   for (final row in rows.skip(1)) {
-    final d = dateOnly(row.date);
+    final d = dateOnlyFromStorage(row.date);
     if (d.isBefore(first)) first = d;
     if (d.isAfter(last)) last = d;
   }

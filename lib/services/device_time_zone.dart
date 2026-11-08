@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as timezone_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -33,6 +34,15 @@ class DeviceTimeZone {
   };
 
   static String canonicalName(String name) => _aliases[name] ?? name;
+
+  /// Pins the phone's zone for tests: a widget test has no platform channel,
+  /// and asking for the real name there waits on a timeout timer.
+  @visibleForTesting
+  static void useName(String name) {
+    _initializeDatabase();
+    location(name);
+    _name = name;
+  }
 
   static void _initializeDatabase() {
     if (_databaseInitialized) return;

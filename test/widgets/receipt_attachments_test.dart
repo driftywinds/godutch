@@ -22,7 +22,7 @@ void main() {
     final client = SpliitClient(
       baseUrl: 'https://example.test',
       httpClient: MockClient((req) async {
-        if (req.url.path == '/api/s3-upload') signs++;
+        if (req.url.path.contains('uploads.')) signs++;
         return http.Response('', 500);
       }),
     );
@@ -51,7 +51,7 @@ void main() {
     final client = SpliitClient(
       baseUrl: 'https://example.test',
       httpClient: MockClient((req) async {
-        if (req.url.path == '/api/s3-upload') signs++;
+        if (req.url.path.contains('uploads.')) signs++;
         return http.Response('', 500);
       }),
     );
@@ -70,3 +70,5 @@ void main() {
     expect(signs, 1);
   });
 }
+
+

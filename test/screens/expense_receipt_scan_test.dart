@@ -152,14 +152,22 @@ void main() {
     return SpliitClient(
       baseUrl: 'https://example.test',
       httpClient: MockClient((req) async {
-        if (req.url.path == '/api/s3-upload') {
+        if (req.url.path.endsWith('uploads.signReceiptUpload')) {
           return http.Response(
-              jsonEncode({
-                'key': 'document-${uploads.length}.jpg',
-                'bucket': 'spliit',
-                'region': 'us-east-1',
-                'url': 'https://spliit.s3.amazonaws.com/document.jpg?sig',
-              }),
+              jsonEncode([
+                {
+                  'result': {
+                    'data': {
+                      'json': {
+                        'key': 'document-${uploads.length}.jpg',
+                        'bucket': 'spliit',
+                        'region': 'us-east-1',
+                        'url': 'https://spliit.s3.amazonaws.com/document.jpg?sig',
+                      },
+                    },
+                  },
+                },
+              ]),
               200);
         }
         if (req.method == 'PUT') {

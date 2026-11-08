@@ -296,6 +296,7 @@
     }
   },
   "expenseItemsExact": "The items add up to the whole amount.",
+  "expenseItemsNoConversion": "An itemized expense can't be paid in another currency yet",
   "expenseItemsOver": "The items come to {amount} more than the expense",
   "@expenseItemsOver": {
     "placeholders": {
@@ -343,6 +344,7 @@
   "expenseSplitLabel": "Split",
   "@expenseSplitLabel": {"description": "The split mode menu's label, where the Evenly / Shares / Percent / Amount control doesn't fit (large text)."},
   "expenseSplitEvenly": "Evenly",
+  "expenseSplitItemized": "Itemized",
   "expenseSplitShares": "Shares",
   "expenseSplitPercent": "Percent",
   "expenseSplitAmount": "Amount",

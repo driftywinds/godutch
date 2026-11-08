@@ -30,7 +30,14 @@ void main() {
 
   SpliitClient offlineClient() => SpliitClient(
         baseUrl: 'https://example.test',
-        httpClient: MockClient((req) async => throw http.ClientException('offline')),
+        httpClient: MockClient((req) async {
+          // Reads are offline; the group actions these screens offer were
+          // Cloud calls, and this fake accepts them.
+          if (req.method == 'POST') {
+            return http.Response('[{"result":{"data":{"json":{}}}}]', 200);
+          }
+          throw http.ClientException('offline');
+        }),
       );
 
   testWidgets('shows an empty state with a join button when nothing is joined',
