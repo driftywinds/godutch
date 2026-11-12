@@ -339,6 +339,14 @@ class Groups extends Table {
   TextColumn get receiptsCheckedActivityId => text().nullable()();
   DateTimeColumn get receiptsCheckedAt => dateTime().nullable()();
 
+  /// The newest activity-log entry seen for notifications, and its time:
+  /// what the background poll has already told the user about, and -- by
+  /// time alone, with no id -- when a group was last opened here, so what
+  /// was just read on screen doesn't come back as a notification. Null
+  /// before the first poll.
+  TextColumn get notificationsCheckedActivityId => text().nullable()();
+  DateTimeColumn get notificationsCheckedAt => dateTime().nullable()();
+
   /// When the group last refreshed from the server, for the open group's
   /// auto refresh (#301). Null until it has.
   DateTimeColumn get refreshedAt => dateTime().nullable()();
@@ -427,7 +435,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   /// Indexes for the queries the app makes on every screen (a group's
   /// expenses, an expense's documents and attachments). Drift doesn't
@@ -684,6 +692,20 @@ class AppDatabase extends _$AppDatabase {
               );
             }
             await _createIndexes(this);
+          }
+          if (from < 25) {
+            // Where the notification poll last got to in each group's
+            // activity log (only when missing, as above).
+            final columns = {
+              for (final c in await customSelect('PRAGMA table_info(groups)').get())
+                c.read<String>('name'),
+            };
+            if (!columns.contains(groups.notificationsCheckedActivityId.name)) {
+              await m.addColumn(groups, groups.notificationsCheckedActivityId);
+            }
+            if (!columns.contains(groups.notificationsCheckedAt.name)) {
+              await m.addColumn(groups, groups.notificationsCheckedAt);
+            }
           }
         },
       );
@@ -1287,6 +1309,20 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setReceiptsChecked(String groupId, {required String activityId, required DateTime at}) =>
       (update(groups)..where((g) => g.id.equals(groupId))).write(GroupsCompanion(
           receiptsCheckedActivityId: Value(activityId), receiptsCheckedAt: Value(at)));
+
+  /// Remembers where the notification poll got to in [groupId]'s activity
+  /// log: [activityId] is the newest entry it has told the user about, or
+  /// null for "seen up to [at]" (opening the group says that).
+  Future<void> setNotificationsChecked(
+          String groupId, {String? activityId, required DateTime at}) =>
+      (update(groups)..where((g) => g.id.equals(groupId))).write(GroupsCompanion(
+          notificationsCheckedActivityId: Value(activityId),
+          notificationsCheckedAt: Value(at)));
+
+  /// Marks everything in [groupId]'s activity log up to now as seen, so a
+  /// change the user is looking at isn't notified about later.
+  Future<void> markGroupSeen(String groupId, {DateTime? at}) =>
+      setNotificationsChecked(groupId, at: at ?? DateTime.now());
 
   /// How many of [groupId]'s receipts are known, and how many of those
   /// are stored on this device (#127). Known: each synced expense's count

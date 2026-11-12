@@ -11,14 +11,19 @@ import 'db/app_database.dart';
 import 'db/connection.dart';
 import 'legal/upstream_licenses.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/context_l10n.dart';
 import 'models/account.dart';
 import 'screens/group_list_screen.dart';
+import 'screens/group_screen.dart';
 import 'screens/join_group_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/exchange_rates.dart';
 import 'services/group_url.dart';
+import 'services/notifications/background.dart';
+import 'services/notifications/local_notifications.dart';
 import 'services/settings_service.dart';
 import 'services/app_settings.dart';
+import 'sync/outbox.dart';
 import 'theme.dart';
 import 'services/error_reporting.dart';
 import 'services/receipt_cache.dart';
@@ -256,6 +261,59 @@ class _RootState extends State<AppRoot> {
       SpliitClient(
           baseUrl: _connection.baseUrl, connection: _connection);
 
+  /// The app's notifications: their channels, and the tap that may have
+  /// opened this launch.
+  final _notifications = LocalNotifications.instance;
+  bool _notificationsStarted = false;
+  bool _openingNotification = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_notificationsStarted) return;
+    _notificationsStarted = true;
+    // The channels' names are the phone's own settings page, so they're
+    // created once the app's language is known.
+    unawaited(_notifications.initialize(channelNames: channelNames(context.l10n)));
+    _notifications.openRequest.addListener(_openNotification);
+    // A notification that launched the app is read while initializing: it
+    // may be waiting already.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openNotification());
+  }
+
+  /// Opens what a tapped notification asked for, once there's an account to
+  /// open it for: a tap while signed out waits for the sign-in.
+  void _openNotification() {
+    if (_openingNotification) return;
+    final target = _notifications.openRequest.value;
+    if (target == null || _loading || _account == null) return;
+    _notifications.openRequest.value = null;
+    _openingNotification = true;
+    unawaited(_openGroupFromNotification(target.groupId).whenComplete(() {
+      _openingNotification = false;
+      // Another tap may have come in while one was opening.
+      _openNotification();
+    }));
+  }
+
+  Future<void> _openGroupFromNotification(String groupId) async {
+    try {
+      await _db.recordGroupOpened(groupId, serverUrl: _client.baseUrl);
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => GroupScreen(
+          client: _client,
+          db: _db,
+          outbox: Outbox(_db, _client, groupId: groupId),
+          groupId: groupId,
+        ),
+      ));
+    } catch (e, st) {
+      ErrorReporter.instance
+          .report(e, st, operation: 'Opening a notification');
+    }
+  }
+
   Future<void> _start() async {
     try {
       final initial = await widget.initialLink;
@@ -297,6 +355,7 @@ class _RootState extends State<AppRoot> {
       if (!mounted) return;
       _readyForLinks = true;
       if (_pendingLinks.isNotEmpty) unawaited(_drainLinks());
+      _openNotification();
     });
   }
 
@@ -311,6 +370,8 @@ class _RootState extends State<AppRoot> {
     unawaited(ReceiptCache.of(_db).sweep());
     unawaited(ExchangeRates.of(_db).cleanUp());
     unawaited(_applyReceiptLimit());
+    // Android's periodic check for new activity, if it's turned on.
+    unawaited(NotificationsSchedule.sync());
     unawaited(_start());
   }
 
@@ -326,6 +387,7 @@ class _RootState extends State<AppRoot> {
 
   @override
   void dispose() {
+    _notifications.openRequest.removeListener(_openNotification);
     _linkSubscription?.cancel();
     if (widget.db == null) unawaited(_db.close());
     super.dispose();
@@ -422,12 +484,17 @@ class _RootState extends State<AppRoot> {
       _recoveryRequired = false;
     });
     if (_pendingLinks.isNotEmpty) unawaited(_drainLinks());
+    // A tap that arrived while signed out waits for this.
+    _openNotification();
+    unawaited(NotificationsSchedule.sync());
   }
 
   Future<void> _signedOut() async {
     await _db.clearAllGroups();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('cloud_cache_owner');
+    // Nothing left to check.
+    unawaited(NotificationsSchedule.cancel());
     if (!mounted) return;
     setState(() {
       _account = null;

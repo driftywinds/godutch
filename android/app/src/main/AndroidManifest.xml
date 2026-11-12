@@ -6,6 +6,9 @@
          failed in release: Flutter doesn't merge debug-only permissions
          into a release manifest. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- New activity in a group, checked in the background: Android 13 asks
+         for this when the user turns notifications on, not at launch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- The cache holds financial data and the session cookie; neither
          belongs in a device/Google-account backup that can be restored
          elsewhere. Users can still export through the server. -->

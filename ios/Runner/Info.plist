@@ -30,6 +30,18 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- The background check for new activity: iOS runs BGAppRefresh when it
+	     decides to, which is best-effort. The identifier matches the task
+	     name the app registers. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>godutch-notifications</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

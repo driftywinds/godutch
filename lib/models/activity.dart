@@ -57,6 +57,13 @@ class Activity {
   final String id;
   final DateTime time;
   final ActivityType activityType;
+
+  /// The server's own name for [activityType] (`EXPENSE_CREATED`, …), which
+  /// [ActivityType] folds together: it tells an invitation accepted from one
+  /// made, or a comment added from one deleted. Empty when a response didn't
+  /// say.
+  final String wireType;
+
   final String? participantId;
 
   /// The actor's display name, captured by the server so it still reads
@@ -80,6 +87,7 @@ class Activity {
     required this.id,
     required this.time,
     required this.activityType,
+    this.wireType = '',
     this.participantId,
     this.actorName,
     this.expenseId,

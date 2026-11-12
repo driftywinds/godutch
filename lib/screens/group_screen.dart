@@ -238,6 +238,9 @@ class _GroupScreenState extends State<GroupScreen> with WidgetsBindingObserver {
       await widget.db.replaceServerExpenses(widget.groupId, fresh,
           fetchedAtGeneration: generation);
       await widget.db.setGroupRefreshed(widget.groupId);
+      // Everything on the screen is news the user is looking at: don't have
+      // the background poll notify about it later.
+      await widget.db.markGroupSeen(widget.groupId);
       // Receipt files the refresh stopped referring to (#123).
       unawaited(ReceiptCache.of(widget.db).sweep());
       // A favorite's receipts, ahead for offline (#127); in the

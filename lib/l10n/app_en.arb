@@ -1412,6 +1412,108 @@
       "count": {"type": "int"}
     }
   },
-  "cloudSignInRequired": "Sign in again to continue."
+  "notificationsTitle": "Notifications",
+  "notificationsMaster": "Notify me",
+  "notificationsMasterHint": "Checks for new activity in the background, even with the app closed.",
+  "notificationsBlocked": "Android has notifications turned off for Go Dutch. Turn them on in the system settings.",
+  "notificationsInterval": "Check every",
+  "notificationsEveryMinutes": "Every {minutes} minutes",
+  "@notificationsEveryMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationsEveryHour": "Every hour",
+  "notificationsTest": "Send a test notification",
+  "notificationsTestTitle": "Go Dutch",
+  "notificationsTestBody": "If you can see this, notifications are working.",
+  "notificationsTestSent": "Test notification sent.",
+  "notificationChannelExpenses": "Expenses",
+  "notificationChannelComments": "Comments",
+  "notificationChannelSettlements": "Payments",
+  "notificationChannelMembers": "Members",
+  "notificationSomeone": "Someone",
+  "notificationAnExpense": "an expense",
+  "notificationExpenseAdded": "{actor} added “{expense}”.",
+  "@notificationExpenseAdded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "expense": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationExpenseUpdated": "{actor} changed “{expense}”.",
+  "@notificationExpenseUpdated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "expense": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationExpenseDeleted": "{actor} deleted “{expense}”.",
+  "@notificationExpenseDeleted": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "expense": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationPayment": "{actor} recorded a payment for “{expense}”.",
+  "@notificationPayment": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "expense": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationComment": "{actor}: {comment}",
+  "@notificationComment": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "comment": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationCommented": "{actor} commented.",
+  "@notificationCommented": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationJoined": "{actor} joined the group.",
+  "@notificationJoined": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationGroupChanged": "{actor} changed the group.",
+  "@notificationGroupChanged": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      }
+    }
+  },  "cloudSignInRequired": "Sign in again to continue."
 }
 

@@ -724,6 +724,7 @@ class SpliitClient {
       id: _asId(json['id']),
       time: _asDateTime(json['time']),
       activityType: ActivityType.fromCloud(type),
+      wireType: type,
       participantId: (json['actorId'] ?? json['participantId']) as String?,
       actorName: json['actorName'] as String?,
       expenseId: subjectType == 'EXPENSE'

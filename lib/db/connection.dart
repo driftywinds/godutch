@@ -13,6 +13,11 @@ LazyDatabase openConnection() {
     final dir = await getApplicationDocumentsDirectory();
     // Kept from the pre-rebrand app so an in-place update keeps its cache.
     final file = File(p.join(dir.path, 'spliit2go.sqlite'));
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(file, setup: (db) {
+      // Two isolates share this file: the app's, and the one the background
+      // notification poll opens. Wait for the other's write rather than fail
+      // it straight away.
+      db.execute('PRAGMA busy_timeout = 5000');
+    });
   });
 }

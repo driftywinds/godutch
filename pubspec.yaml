@@ -51,6 +51,13 @@ dependencies:
   # the app renders the calendar date in that zone, not the phone's.
   timezone: ^0.11.2
   flutter_timezone: ^5.1.1
+  # New activity in a group while the app is closed: the shade's
+  # notifications (four channels, a tap that opens the group)...
+  flutter_local_notifications: ^23.0.1
+  # ...and Android's WorkManager, which runs the periodic check that finds
+  # it. iOS uses BGAppRefresh behind the same call; see
+  # docs/decisions/notifications.md.
+  workmanager: ^0.10.10
 
 dev_dependencies:
   shared_preferences_platform_interface: ^2.4.2

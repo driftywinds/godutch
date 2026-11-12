@@ -79,12 +79,18 @@ if (gitCommit.isEmpty() || gitCommit.endsWith("?")) {
 
 android {
     namespace = "com.dwprod.godutch"
-    compileSdk = flutter.compileSdkVersion
+    // 37, not flutter.compileSdkVersion (36): flutter_local_notifications
+    // compiles against 37, and one module can't go below what another needs.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications' classes use Java 8+ APIs that have to
+        // be desugared for older Android versions. Its own docs say to turn
+        // this on even when only showing notifications as they arrive.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -204,4 +210,6 @@ dependencies {
     // The Document Scanner: a small client; Google Play services downloads
     // the scanner itself on first use.
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    // What flutter_local_notifications' desugaring needs (see compileOptions).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

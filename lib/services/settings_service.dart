@@ -91,6 +91,49 @@ class SettingsService {
     }
   }
 
+  /// Whether the app may notify about new activity at all. Off until it is
+  /// turned on: Android 13 asks for its permission at that moment, not at
+  /// launch.
+  Future<bool> notificationsEnabled() async =>
+      (await SharedPreferences.getInstance()).getBool('notifications_enabled') ??
+      false;
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool('notifications_enabled', value)) {
+      throw StateError('Could not save the notification setting');
+    }
+  }
+
+  /// Whether [categoryId] (a `NotificationCategory.id`) is one to notify
+  /// about: on by default.
+  Future<bool> notificationCategoryEnabled(String categoryId) async =>
+      (await SharedPreferences.getInstance())
+          .getBool('notification_category.$categoryId') ??
+      true;
+
+  Future<void> setNotificationCategoryEnabled(
+      String categoryId, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool('notification_category.$categoryId', value)) {
+      throw StateError('Could not save the notification setting');
+    }
+  }
+
+  /// How often the background poll runs, in minutes: 15 by default, the
+  /// least Android allows.
+  Future<int> notificationIntervalMinutes() async =>
+      (await SharedPreferences.getInstance())
+          .getInt('notification_interval_minutes') ??
+      15;
+
+  Future<void> setNotificationIntervalMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setInt('notification_interval_minutes', minutes)) {
+      throw StateError('Could not save the notification interval');
+    }
+  }
+
   /// The most space stored receipts may take, in MB (#127): one limit
   /// for every kind; see ReceiptCache.
   Future<int> receiptStorageLimitMb() async =>

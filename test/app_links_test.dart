@@ -14,6 +14,8 @@ import 'package:godutch/screens/group_list_screen.dart';
 import 'package:godutch/screens/group_screen.dart';
 import 'package:godutch/screens/join_group_screen.dart';
 import 'package:godutch/screens/welcome_screen.dart';
+import 'package:godutch/services/notifications/local_notifications.dart';
+import 'package:godutch/services/notifications/notification_message.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/error_log.dart';
@@ -195,6 +197,22 @@ void main() {
     expect(find.byType(JoinGroupScreen), findsNothing);
     expect(find.byType(WelcomeScreen), findsNothing);
     expect(find.byType(GroupListScreen), findsOneWidget);
+    await dispose(tester);
+  });
+
+  testWidgets('a tapped notification opens the group it came from',
+      (tester) async {
+    await mount(tester, cloud: _FakeCloud(groups: ['g1', 'g2']));
+    expect(find.byType(GroupListScreen), findsOneWidget);
+    addTearDown(() => LocalNotifications.instance.openRequest.value = null);
+
+    LocalNotifications.instance.openRequest.value =
+        const NotificationTarget(groupId: 'g2');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GroupScreen), findsOneWidget);
+    // Opened, not just shown: it counts as where the app was left.
+    expect((await db.groupRow('g2'))!.lastOpenedAt, isNotNull);
     await dispose(tester);
   });
 

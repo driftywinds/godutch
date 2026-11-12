@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../l10n/app_locales.dart';
 import '../l10n/context_l10n.dart';
 import '../services/app_settings.dart';
 import '../services/error_reporting.dart';
 import '../services/exchange_rates.dart';
+import '../services/notifications/background.dart';
+import '../services/notifications/local_notifications.dart';
+import '../services/notifications/notification_message.dart';
+import '../services/notifications/notification_prefs.dart';
 import '../services/receipt_cache.dart';
 import '../services/receipt_downloader.dart';
 import '../services/settings_service.dart';
@@ -13,6 +18,7 @@ import '../utils/byte_size.dart';
 import '../utils/date_format.dart';
 import '../widgets/error_message.dart';
 import 'about_screen.dart';
+import '../widgets/app_switch.dart';
 import '../widgets/grouped_section.dart';
 import '../widgets/bottom_inset.dart';
 import '../widgets/confirm_dialog.dart';
@@ -71,6 +77,7 @@ class AppSettingsScreen extends StatelessWidget {
               ),
           ]),
           GroupedSection(caption: l10n.appSettingsSync, children: const [_AutoRefreshTile()]),
+          GroupedSection(caption: l10n.notificationsTitle, children: const [_NotificationsSettings()]),
           if (receipts case final receipts?)
             GroupedSection(caption: l10n.appSettingsStorage, children: [
               _ReceiptStorageTile(receipts),
@@ -480,5 +487,197 @@ class _AutoRefreshTileState extends State<_AutoRefreshTile> {
           : '${_label(value)} · ${l10n.appSettingsAutoRefreshHint}'),
       onTap: value == null ? null : _choose,
     );
+  }
+}
+
+/// Notifications: whether to check at all, what for, and how often. Android
+/// decides when exactly it runs the check; the hint says so rather than
+/// promising a time.
+class _NotificationsSettings extends StatefulWidget {
+  const _NotificationsSettings();
+
+  @override
+  State<_NotificationsSettings> createState() => _NotificationsSettingsState();
+}
+
+class _NotificationsSettingsState extends State<_NotificationsSettings> {
+  final _settings = SettingsService();
+  final _notifications = LocalNotifications.instance;
+  bool? _enabled;
+  Set<NotificationCategory>? _categories;
+  Duration? _interval;
+  bool _muted = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await NotificationPrefs.load(_settings);
+      final muted = !await _notifications.enabledOnDevice();
+      if (!mounted) return;
+      setState(() {
+        _enabled = prefs.enabled;
+        _categories = prefs.categories;
+        _interval = prefs.interval;
+        _muted = muted;
+      });
+    } catch (e, st) {
+      ErrorReporter.instance
+          .report(e, st, operation: 'Reading the notification settings');
+    }
+  }
+
+  /// Runs [save], then re-reads what's stored so the rows show the truth
+  /// even when a write failed.
+  Future<void> _save(Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (e, st) {
+      final error = ErrorReporter.instance
+          .report(e, st, operation: 'Saving an app setting');
+      if (mounted) {
+        showErrorSnackBar(context, context.l10n.appSettingsSaveError,
+            diagnostics: error.diagnostics);
+      }
+    }
+    await _load();
+  }
+
+  Future<void> _setEnabled(bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _save(() async {
+        if (value) {
+          // Android 13 asks here, right after the user said yes, not on
+          // launch: a prompt out of nowhere is the quickest way to a no.
+          await _notifications.requestPermission();
+          await _settings.setNotificationsEnabled(true);
+        } else {
+          await _settings.setNotificationsEnabled(false);
+        }
+        // The poll follows the switch without waiting for a restart.
+        await NotificationsSchedule.sync();
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setCategory(NotificationCategory category, bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _save(
+          () => _settings.setNotificationCategoryEnabled(category.id, value));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _chooseInterval() async {
+    final current = _interval;
+    if (current == null || _busy) return;
+    final l10n = context.l10n;
+    final chosen = await showDialog<Duration>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(l10n.notificationsInterval),
+        children: [
+          for (final interval in NotificationPrefs.intervals)
+            ListTile(
+              title: Text(_intervalLabel(l10n, interval)),
+              trailing: interval == current ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.pop(dialogContext, interval),
+            ),
+        ],
+      ),
+    );
+    if (chosen == null || chosen == current) return;
+    setState(() => _busy = true);
+    try {
+      await _save(() async {
+        await _settings.setNotificationIntervalMinutes(chosen.inMinutes);
+        await NotificationsSchedule.sync();
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _sendTest() async {
+    final l10n = context.l10n;
+    await _notifications.show(NotificationMessage(
+      id: 1,
+      category: NotificationCategory.expenses,
+      title: l10n.notificationsTestTitle,
+      body: l10n.notificationsTestBody,
+    ));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.notificationsTestSent)));
+  }
+
+  String _intervalLabel(AppLocalizations l10n, Duration interval) =>
+      interval.inMinutes < 60
+          ? l10n.notificationsEveryMinutes(interval.inMinutes)
+          : l10n.notificationsEveryHour;
+
+  String _categoryName(AppLocalizations l10n, NotificationCategory category) =>
+      switch (category) {
+        NotificationCategory.expenses => l10n.notificationChannelExpenses,
+        NotificationCategory.comments => l10n.notificationChannelComments,
+        NotificationCategory.settlements =>
+          l10n.notificationChannelSettlements,
+        NotificationCategory.members => l10n.notificationChannelMembers,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final enabled = _enabled;
+    final categories = _categories;
+    final interval = _interval;
+    final ready = enabled != null && categories != null && interval != null;
+    return Column(children: [
+      GroupedRow(
+        title: Text(l10n.notificationsMaster),
+        subtitle: Text(enabled == true && _muted
+            ? l10n.notificationsBlocked
+            : l10n.notificationsMasterHint),
+        trailing: AppSwitch(
+          value: enabled ?? false,
+          onChanged: ready && !_busy ? _setEnabled : null,
+        ),
+      ),
+      // The rest only matters once it's on.
+      if (enabled == true) ...[
+        for (final category in NotificationCategory.values) ...[
+          const GroupedDivider(),
+          GroupedRow(
+            title: Text(_categoryName(l10n, category)),
+            trailing: AppSwitch(
+              value: categories!.contains(category),
+              onChanged: ready && !_busy
+                  ? (value) => _setCategory(category, value)
+                  : null,
+            ),
+          ),
+        ],
+        const GroupedDivider(),
+        GroupedRow(
+          title: Text(l10n.notificationsInterval),
+          value: Text(_intervalLabel(l10n, interval!)),
+          onTap: ready && !_busy ? _chooseInterval : null,
+        ),
+        const GroupedDivider(),
+        GroupedRow(title: Text(l10n.notificationsTest), onTap: _sendTest),
+      ],
+    ]);
   }
 }
