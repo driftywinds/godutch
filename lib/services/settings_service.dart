@@ -134,6 +134,23 @@ class SettingsService {
     }
   }
 
+  /// The groups that never notify, by id: a device-local choice, never sent
+  /// to the server and kept apart from the group's own settings.
+  Future<Set<String>> notificationMutedGroups() async =>
+      ((await SharedPreferences.getInstance())
+              .getStringList('notification_muted_groups') ??
+          const [])
+          .toSet();
+
+  Future<void> setNotificationGroupMuted(String groupId, bool muted) async {
+    final prefs = await SharedPreferences.getInstance();
+    final groups = await notificationMutedGroups();
+    muted ? groups.add(groupId) : groups.remove(groupId);
+    if (!await prefs.setStringList('notification_muted_groups', groups.toList())) {
+      throw StateError('Could not save the notification setting');
+    }
+  }
+
   /// The most space stored receipts may take, in MB (#127): one limit
   /// for every kind; see ReceiptCache.
   Future<int> receiptStorageLimitMb() async =>

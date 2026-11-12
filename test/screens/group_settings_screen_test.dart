@@ -11,6 +11,9 @@ import 'package:godutch/l10n/app_localizations.dart';
 import 'package:godutch/models/expense.dart';
 import 'package:godutch/models/group.dart';
 import 'package:godutch/screens/group_settings_screen.dart';
+import 'package:godutch/services/settings_service.dart';
+import 'package:godutch/widgets/app_switch.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// A client for tests about local data only: the settings screen asks the
 /// server for pending invitations, which are none here.
@@ -439,5 +442,50 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
-}
 
+  // Per-group mute: device-local, applied at once, apart from the form's
+  // Save.
+  testWidgets('notifications can be muted for this group alone', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.cacheGroup(group);
+    await db.setNotificationsChecked('g1', at: DateTime(2026, 1, 1));
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: GroupSettingsScreen(
+        client: SpliitClient(
+            baseUrl: 'https://example.test', httpClient: localClient()),
+        db: db,
+        group: group,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Notify me'), 150,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('New expenses, payments and members.'), findsOneWidget);
+    await tester.tap(find.byType(AppSwitch));
+    await tester.pumpAndSettle();
+
+    expect(await SettingsService().notificationMutedGroups(), {'g1'});
+    expect(find.text('Muted: nothing from this group is notified about.'),
+        findsOneWidget);
+
+    // Unmuting starts from now rather than ringing for what was missed.
+    await tester.tap(find.byType(AppSwitch));
+    await tester.pumpAndSettle();
+    expect(await SettingsService().notificationMutedGroups(), isEmpty);
+    final mark = (await db.groupRow('g1'))!.notificationsCheckedAt;
+    expect(mark, isNotNull);
+    expect(mark!.isAfter(DateTime(2026, 1, 2)), isTrue);
+
+    // See the first test for why. (issue #57)
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+}

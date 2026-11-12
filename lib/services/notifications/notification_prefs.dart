@@ -10,6 +10,7 @@ class NotificationPrefs {
     this.enabled = false,
     this.categories = allCategories,
     this.interval = defaultInterval,
+    this.mutedGroups = const {},
   });
 
   static const allCategories = <NotificationCategory>{
@@ -37,9 +38,15 @@ class NotificationPrefs {
 
   final Duration interval;
 
+  /// The groups that never notify, by id.
+  final Set<String> mutedGroups;
+
   /// Whether an event in [category] is worth a notification.
   bool allows(NotificationCategory category) =>
       enabled && categories.contains(category);
+
+  /// Whether [groupId] is one to notify about.
+  bool allowsGroup(String groupId) => !mutedGroups.contains(groupId);
 
   /// [minutes] as one of [intervals]: anything else falls back to the
   /// closest allowed choice.
@@ -63,6 +70,7 @@ class NotificationPrefs {
       enabled: enabled,
       categories: categories,
       interval: intervalFor(await settings.notificationIntervalMinutes()),
+      mutedGroups: await settings.notificationMutedGroups(),
     );
   }
 }

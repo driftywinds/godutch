@@ -15,6 +15,7 @@ import '../services/settings_service.dart';
 import '../theme.dart';
 import '../utils/date_format.dart';
 import '../widgets/bottom_inset.dart';
+import '../widgets/app_switch.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/currency_picker.dart';
 import '../widgets/error_message.dart';
@@ -95,8 +96,42 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     if (!_creating) {
       _seeded = true;
       _watchCachedMeta();
+      unawaited(_loadMuted());
       if (_group?.canManage == true) {
         unawaited(_loadInvitations());
+      }
+    }
+  }
+
+  /// Whether this group's notifications are switched off on this device;
+  /// null until it's read. Device-local, and never part of the form's Save.
+  bool? _muted;
+
+  Future<void> _loadMuted() async {
+    try {
+      final muted = await SettingsService().notificationMutedGroups();
+      if (mounted) setState(() => _muted = muted.contains(_group?.id));
+    } catch (e, st) {
+      ErrorReporter.instance.report(e, st, operation: 'Reading the notification settings');
+    }
+  }
+
+  /// Switches this group's notifications [notify] on. Unmuting starts from
+  /// now rather than ringing for what was missed while muted.
+  Future<void> _setMuted(bool notify) async {
+    final groupId = _group?.id;
+    if (groupId == null) return;
+    final previous = _muted ?? false;
+    setState(() => _muted = !notify);
+    try {
+      await SettingsService().setNotificationGroupMuted(groupId, !notify);
+      if (notify) await widget.db.markGroupSeen(groupId);
+    } catch (e, st) {
+      if (mounted) setState(() => _muted = previous);
+      final error = ErrorReporter.instance.report(e, st, operation: 'Saving an app setting');
+      if (mounted) {
+        showErrorSnackBar(context, context.l10n.appSettingsSaveError,
+            diagnostics: error.diagnostics);
       }
     }
   }
@@ -578,6 +613,26 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   )),
                 ]),
                 if (!_creating) ...[
+                  // Device-local, applied at once: not part of the form's
+                  // Save like the name and notes above.
+                  GroupedSection(
+                    caption: context.l10n.notificationsTitle,
+                    children: [
+                      ListTile(
+                        leading: Icon(_muted == true
+                            ? Icons.notifications_off_outlined
+                            : Icons.notifications_active_outlined),
+                        title: Text(context.l10n.notificationsMaster),
+                        subtitle: Text(_muted == true
+                            ? context.l10n.groupSettingsNotificationsMuted
+                            : context.l10n.groupSettingsNotificationsHint),
+                        trailing: AppSwitch(
+                          value: _muted != true,
+                          onChanged: _muted == null ? null : _setMuted,
+                        ),
+                      ),
+                    ],
+                  ),
                   GroupedSection(
                     caption: context.l10n.groupSettingsMembersHeading,
                     captionTrailing: isAdmin

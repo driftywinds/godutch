@@ -237,6 +237,28 @@ void main() {
     expect(requests, isEmpty);
   });
 
+  test('a muted group is not asked about at all', () async {
+    final db = await cachedGroup();
+    await db.cacheGroup(const Group(
+        id: 'g2', name: 'Ski Trip', currency: '\$', participants: []));
+    await db.recordGroupOpened('g2', serverUrl: baseUrl, at: DateTime(2026, 11, 2));
+    final (poller, sink, requests) = await pollerFor(
+      db,
+      [entry(id: 'a1', type: 'EXPENSE_CREATED', at: at(11))],
+      markAt: at(10),
+      prefs: const {
+        'notifications_enabled': true,
+        'notification_muted_groups': <String>['g1'],
+      },
+    );
+
+    expect(await poller.poll(), 0);
+    expect(sink.shown, isEmpty);
+    // The muted group costs no request; the other one is still checked.
+    expect(requests, hasLength(1));
+    expect(requests.single.query, contains('g2'));
+  });
+
   test('a group never polled before starts from its newest entry, quietly', () async {
     final db = await cachedGroup();
     final (poller, sink, _) = await pollerFor(

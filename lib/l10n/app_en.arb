@@ -1412,7 +1412,8 @@
       "count": {"type": "int"}
     }
   },
-  "notificationsTitle": "Notifications",
+  "groupSettingsNotificationsHint": "New expenses, payments and members.",
+  "groupSettingsNotificationsMuted": "Muted: nothing from this group is notified about.",  "notificationsTitle": "Notifications",
   "notificationsMaster": "Notify me",
   "notificationsMasterHint": "Checks for new activity in the background, even with the app closed.",
   "notificationsBlocked": "Android has notifications turned off for Go Dutch. Turn them on in the system settings.",

@@ -32,6 +32,21 @@ void main() {
     expect(prefs.interval, const Duration(hours: 1));
   });
 
+  test('a muted group is remembered, and unmuting forgets it', () async {
+    final settings = SettingsService();
+    await settings.setNotificationGroupMuted('g1', true);
+    expect(await settings.notificationMutedGroups(), {'g1'});
+
+    var prefs = await NotificationPrefs.load(settings);
+    expect(prefs.allowsGroup('g1'), isFalse);
+    expect(prefs.allowsGroup('g2'), isTrue);
+
+    await settings.setNotificationGroupMuted('g1', false);
+    prefs = await NotificationPrefs.load(settings);
+    expect(prefs.allowsGroup('g1'), isTrue);
+    expect(await settings.notificationMutedGroups(), isEmpty);
+  });
+
   test('an interval outside the offered ones falls back to the nearest', () {
     expect(NotificationPrefs.intervalFor(null), const Duration(minutes: 15));
     expect(NotificationPrefs.intervalFor(15), const Duration(minutes: 15));

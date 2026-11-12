@@ -53,7 +53,9 @@ class ActivityPoller {
     final prefs = await NotificationPrefs.load(settings);
     if (!prefs.enabled) return 0;
     final groups = (await db.allJoinedGroups())
-        .where((row) => row.organization != GroupOrganization.archived)
+        .where((row) =>
+            row.organization != GroupOrganization.archived &&
+            prefs.allowsGroup(row.id))
         .take(maxGroups);
     var shown = 0;
     for (final row in groups) {
